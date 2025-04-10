@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { useRouter, usePathname } from "next/navigation";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { User } from "@supabase/supabase-js";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
+  const pathname = usePathname();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     // Get initial session
@@ -24,12 +26,15 @@ export default function Navbar() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabase]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
     router.push("/auth/login");
-    router.refresh();
+  };
+
+  const isActive = (path: string) => {
+    return pathname === path;
   };
 
   return (
@@ -46,13 +51,21 @@ export default function Navbar() {
               <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
                 <Link
                   href="/"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-900"
+                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/")
+                      ? "text-gray-900"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
                 >
                   Dashboard
                 </Link>
                 <Link
                   href="/challenges"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-gray-500 hover:text-gray-900"
+                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    isActive("/challenges")
+                      ? "text-gray-900"
+                      : "text-gray-500 hover:text-gray-900"
+                  }`}
                 >
                   My Challenges
                 </Link>

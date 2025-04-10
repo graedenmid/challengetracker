@@ -1,11 +1,25 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createChallenge } from "@/lib/api";
+import { ChallengeType, Frequency } from "@/types";
 
 export default function NewChallengePage() {
   const router = useRouter();
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    type: "daily" as ChallengeType,
+    target: 1,
+    unit: "",
+    frequency: "daily" as Frequency,
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: "",
+    isIncremental: false,
+    baseValue: 1,
+    incrementPerDay: 1,
+  });
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -15,10 +29,10 @@ export default function NewChallengePage() {
       await createChallenge({
         title: formData.get("title") as string,
         description: formData.get("description") as string,
-        type: formData.get("type") as string,
+        type: formData.get("type") as ChallengeType,
         target: parseInt(formData.get("target") as string),
         unit: formData.get("unit") as string,
-        frequency: formData.get("frequency") as string,
+        frequency: formData.get("frequency") as Frequency,
         startDate: formData.get("startDate") as string,
         endDate: (formData.get("endDate") as string) || undefined,
       });
@@ -32,10 +46,9 @@ export default function NewChallengePage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8">Create New Challenge</h1>
-
-      <form onSubmit={handleSubmit} className="max-w-2xl mx-auto">
-        <div className="space-y-6">
+      <div className="max-w-2xl mx-auto">
+        <h1 className="text-3xl font-bold mb-8">Create New Challenge</h1>
+        <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label
               htmlFor="title"
@@ -79,6 +92,7 @@ export default function NewChallengePage() {
               name="type"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
+              defaultValue="HABIT"
             >
               <option value="HABIT">Habit</option>
               <option value="GOAL">Goal</option>
@@ -133,6 +147,7 @@ export default function NewChallengePage() {
               name="frequency"
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
               required
+              defaultValue="DAILY"
             >
               <option value="DAILY">Daily</option>
               <option value="WEEKLY">Weekly</option>
@@ -173,6 +188,80 @@ export default function NewChallengePage() {
             </div>
           </div>
 
+          <div className="space-y-4">
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isIncremental"
+                checked={formData.isIncremental}
+                onChange={(e) =>
+                  setFormData({ ...formData, isIncremental: e.target.checked })
+                }
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="isIncremental"
+                className="ml-2 block text-sm text-gray-900"
+              >
+                Enable incremental mode
+              </label>
+            </div>
+
+            {formData.isIncremental && (
+              <>
+                <div>
+                  <label
+                    htmlFor="baseValue"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Base Value
+                  </label>
+                  <input
+                    type="number"
+                    id="baseValue"
+                    value={formData.baseValue}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        baseValue: parseInt(e.target.value),
+                      })
+                    }
+                    min="1"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    Starting value for the first day
+                  </p>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="incrementPerDay"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Increment Per Day
+                  </label>
+                  <input
+                    type="number"
+                    id="incrementPerDay"
+                    value={formData.incrementPerDay}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        incrementPerDay: parseInt(e.target.value),
+                      })
+                    }
+                    min="1"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    How much to increase the target each day
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+
           <div className="flex justify-end">
             <button
               type="submit"
@@ -181,8 +270,8 @@ export default function NewChallengePage() {
               Create Challenge
             </button>
           </div>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 }
