@@ -1,0 +1,111 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: Rules for Version Control using Git Bash
+globs: 
+---
+
+
+# Repository: https://github.com/graedenmid/challengetracker.git
+
+
+# General Settings
+version_control_system: git
+command_line_interface: Git Bash
+repository_url: https://github.com/graedenmid/challengetracker.git
+default_branch: main
+
+# Rule 1: Initialize Git Repository (if not already initialized)
+when:
+  - project_directory lacks .git folder
+actions:
+  - run: "git init"
+  - run: "git remote add origin https://github.com/graedenmid/challengetracker.git"
+  - notify: "Git repository initialized and remote origin set to https://github.com/graedenmid/challengetracker.git"
+
+# Rule 2: Check Git Status Before Actions
+when:
+  - several files in /challenge-tracker have been modified
+actions:
+  - run: "git status"
+  - store_output_as: git_status
+
+# Rule 3: Stage Modified Files
+when:
+  - git_status contains several"Changes not staged for commit"
+actions:
+  - run: "git add ."
+  - notify: "All modified files have been staged."
+
+# Rule 4: Commit Changes
+when:
+  - git_status contains several "Changes to be committed"
+conditions:
+  - user_confirms: "Would you like to commit these changes? Provide a commit message or press Enter for default."
+actions:
+  - if user_input is empty:
+      - run: "git commit -m \"Update project files on April 09, 2025\""
+  - else:
+      - run: "git commit -m \"${user_input}\""
+  - notify: "Changes committed successfully."
+
+# Rule 5: Pull Updates from Remote Before Pushing
+when:
+  - user_requests: "push changes" OR after "git commit"
+actions:
+  - run: "git pull origin main"
+  - if conflict_detected:
+      - notify: "Merge conflicts detected. Please resolve them manually in Git Bash using 'git status' and 'git mergetool'."
+      - halt
+  - notify: "Pulled latest changes from main branch."
+
+# Rule 6: Push Changes to Remote Repository
+when:
+  - after "git commit" AND "git pull" succeeds
+actions:
+  - run: "git push origin main"
+  - notify: "Changes pushed to https://github.com/graedenmid/challengetracker.git on branch main."
+
+# Rule 7: Create and Switch to New Branch
+when:
+  - user_requests: "create new branch"
+conditions:
+  - user_provides: "branch_name"
+actions:
+  - run: "git checkout -b ${branch_name}"
+  - notify: "Switched to new branch: ${branch_name}"
+
+# Rule 8: Merge Branch into Main
+when:
+  - user_requests: "merge branch into main"
+conditions:
+  - user_provides: "branch_name"
+actions:
+  - run: "git checkout main"
+  - run: "git pull origin main"
+  - run: "git merge ${branch_name}"
+  - if conflict_detected:
+      - notify: "Merge conflicts detected. Resolve manually in Git Bash."
+      - halt
+  - run: "git push origin main"
+  - notify: "Branch ${branch_name} merged into main and pushed to remote."
+
+# Rule 9: Periodic Status Check
+when:
+  - every 10 minutes during active coding session
+actions:
+  - run: "git status"
+  - if changes_detected:
+      - notify: "Uncommitted changes detected. Consider staging and committing."
+
+# Rule 10: Handle Authentication (if needed)
+when:
+  - git_command fails with "authentication error"
+actions:
+  - notify: "Git authentication failed. Ensure credentials are configured in Git Bash (e.g., via 'git config --global credential.helper')."
+  - halt
+
+# End of Rules

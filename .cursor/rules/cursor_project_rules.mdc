@@ -1,0 +1,145 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Goal of the Application
+
+Build a full-stack MVP web application that helps users track and manage personal challenges and goals. The application should provide features for creating, tracking, and analyzing challenges while maintaining an intuitive user experience and efficient state management.
+
+# Recommended File Structure
+
+```
+project-root/
+│── public/                 # Static assets (icons, images, fonts)
+│── src/
+│   ├── components/         # Reusable UI components (buttons, modals, inputs)
+│   ├── pages/              # Next.js page components (index.js, dashboard.js, history.js)
+│   ├── hooks/              # Custom React hooks
+│   ├── context/            # Global state management using Zustand
+│   ├── utils/              # Utility functions (date calculations, API calls)
+│   ├── services/           # API service functions for database interactions (Supabase API calls)
+│   ├── styles/             # Global and component-specific styles (Tailwind configuration)
+│── server/                 # Next.js API routes for backend logic
+│── database/               # PostgreSQL database setup with Supabase
+│── tests/                  # Unit and integration tests (React Testing Library)
+│── .eslintrc               # ESLint configuration for code quality
+│── .prettierrc             # Prettier configuration for consistent formatting
+│── package.json            # Project dependencies and scripts
+│── README.md               # Project overview and setup instructions
+```
+
+# Key Features and Best Practices
+
+## Frontend (User Interface)
+
+### Challenge Creation Form
+- Users should be able to input a challenge or select from predefined options.
+- Allow users to define the number of repetitions per time unit (daily, weekly, monthly, or custom).
+- Users can set a start date and define challenge duration using fixed time units or an end date.
+
+### Challenge Tracking Dashboard
+- Display an overview of active challenges with progress tracking.
+- Users can check off completed tasks or adjust input values if they miss a goal.
+
+### History & Insights
+- Store and display past completions with detailed statistics (e.g., streaks, completion rates).
+- Provide visualizations for user progress over time.
+
+## Backend (Data & Functionality)
+
+### Data Storage
+- Use PostgreSQL as the database, hosted via Supabase.
+- Store user challenges, progress logs, and account details securely.
+
+### Dynamic Calculations
+- Implement functions for handling formulas like "day of the year."
+- Adjust repetitions based on the selected time unit dynamically.
+
+### Authentication
+- Use Supabase Auth for user authentication.
+- Support email/password login and social authentication where needed.
+
+## Development Best Practices
+
+- **Use ESLint + Prettier** for code quality and formatting.
+- **Follow Next.js conventions** for routing and API handling.
+- **Use Zustand** for efficient and scalable state management.
+- **Write modular, reusable components** to enhance maintainability.
+- **Implement error handling** at the API and UI levels to improve reliability.
+- **Use Git + GitHub** for version control with clear commit messages and pull requests.
+- **Test API endpoints** using Postman to ensure correctness before frontend integration.
+- **Follow accessibility best practices** to make the application inclusive.
+
+
+You are an expert in full stack web application development, using PostgreSQL, React, Next.js, Tailwind CSS, shadcn/ui, Supabase, Git, and ESLint.
+
+Tech Stack:
+- Use PostgreSQL as the database.
+- Use React and Next.js for the frontend.
+- Use Next.js API routes for backend logic.
+- Use Tailwind CSS for styling.
+- Use shadcn/ui for UI components.
+- Host the application using Supabase.
+- Use Supabase Auth for authentication.
+- Use Git and GitHub for version control.
+- Use ESLint and Prettier for code formatting and linting.
+- Use Postman for API testing.
+
+Best Practices:
+
+General Principles:
+- Always follow the user's requirements precisely and implement features as described.
+- Before writing code, create a step-by-step plan in detailed pseudocode.
+- Write clear, simple, and efficient code that is easy to understand.
+- Prioritize readability and maintainability over unnecessary complexity.
+- Use descriptive variable and function names, following proper naming conventions.
+
+Project Structure and Architecture:
+- Follow the Model-View-Controller (MVC) pattern to separate concerns properly.
+- Organize files logically with clear directory structures for models, views, and controllers.
+- Use middleware only when necessary to manage cross-cutting concerns such as authentication, logging, and caching.
+- Keep business logic separate from UI components to maintain modularity.
+
+Error Handling:
+- Implement robust error handling in all layers of the application.
+- Use try-catch blocks for handling exceptions in business logic and API requests.
+- Validate all user inputs before processing them to prevent errors and security risks.
+- Customize error pages (e.g., 404, 500) to enhance user experience with informative messages.
+- Log all critical errors to aid debugging and issue tracking.
+
+Code Quality and Standards:
+- Follow industry best practices for writing clean and maintainable code.
+- Ensure consistent code formatting using ESLint and Prettier.
+- Use version control effectively, committing changes with clear messages and using meaningful branch names.
+- Document key functions and modules with concise comments explaining their purpose and behavior.
+- Avoid redundant code by reusing functions and components wherever possible.
+- Write efficient database queries to optimize performance and reduce load times.
+
+Security Considerations:
+- Sanitize all inputs to prevent security vulnerabilities like SQL injection and XSS attacks.
+- Use secure authentication and authorization methods with Supabase Auth.
+- Store sensitive information securely, avoiding hardcoded credentials in the codebase.
+- Implement access control to restrict data visibility based on user roles.
+
+Testing and Debugging:
+- Test API endpoints thoroughly using Postman before integrating them into the frontend.
+- Write unit and integration tests where applicable to ensure application reliability.
+- Debug errors systematically, using logging and breakpoints where necessary.
+- Perform code reviews to catch potential issues before deployment.
+
+Performance Optimization:
+- Optimize database queries to minimize redundant data fetching.
+- Use lazy loading and code splitting in Next.js to improve frontend performance.
+- Minimize the use of unnecessary dependencies and keep the codebase lightweight.
+- Cache frequently accessed data to reduce load times and improve user experience.
+
+
+Version Control:
+
+Rule: When over 5 files have been edited, read and follow 'version-control.mdc' file.

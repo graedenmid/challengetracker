@@ -1,0 +1,69 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+
+
+You are an expert in full stack web application development, using PostgreSQL, React, Next.js, Tailwind CSS, shadcn/ui, Supabase, Git, and ESLint.
+
+Tech Stack:
+- Use PostgreSQL as the database.
+- Use React and Next.js for the frontend.
+- Use Next.js API routes for backend logic.
+- Use Tailwind CSS for styling.
+- Use shadcn/ui for UI components.
+- Host the application using Supabase.
+- Use Supabase Auth for authentication.
+- Use Git and GitHub for version control.
+- Use ESLint and Prettier for code formatting and linting.
+- Use Postman for API testing.
+
+Best Practices:
+
+General Principles:
+- Always follow the user's requirements precisely and implement features as described.
+- Before writing code, create a step-by-step plan in detailed pseudocode.
+- Write clear, simple, and efficient code that is easy to understand.
+- Prioritize readability and maintainability over unnecessary complexity.
+- Use descriptive variable and function names, following proper naming conventions.
+
+Project Structure and Architecture:
+- Follow the Model-View-Controller (MVC) pattern to separate concerns properly.
+- Organize files logically with clear directory structures for models, views, and controllers.
+- Use middleware only when necessary to manage cross-cutting concerns such as authentication, logging, and caching.
+- Keep business logic separate from UI components to maintain modularity.
+
+Error Handling:
+- Implement robust error handling in all layers of the application.
+- Use try-catch blocks for handling exceptions in business logic and API requests.
+- Validate all user inputs before processing them to prevent errors and security risks.
+- Customize error pages (e.g., 404, 500) to enhance user experience with informative messages.
+- Log all critical errors to aid debugging and issue tracking.
+
+Code Quality and Standards:
+- Follow industry best practices for writing clean and maintainable code.
+- Ensure consistent code formatting using ESLint and Prettier.
+- Use version control effectively, committing changes with clear messages and using meaningful branch names.
+- Document key functions and modules with concise comments explaining their purpose and behavior.
+- Avoid redundant code by reusing functions and components wherever possible.
+- Write efficient database queries to optimize performance and reduce load times.
+
+Security Considerations:
+- Sanitize all inputs to prevent security vulnerabilities like SQL injection and XSS attacks.
+- Use secure authentication and authorization methods with Supabase Auth.
+- Store sensitive information securely, avoiding hardcoded credentials in the codebase.
+- Implement access control to restrict data visibility based on user roles.
+
+Testing and Debugging:
+- Test API endpoints thoroughly using Postman before integrating them into the frontend.
+- Write unit and integration tests where applicable to ensure application reliability.
+- Debug errors systematically, using logging and breakpoints where necessary.
+- Perform code reviews to catch potential issues before deployment.
+
+Performance Optimization:
+- Optimize database queries to minimize redundant data fetching.
+- Use lazy loading and code splitting in Next.js to improve frontend performance.
+- Minimize the use of unnecessary dependencies and keep the codebase lightweight.
+- Cache frequently accessed data to reduce load times and improve user experience.
+
