@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { Challenge, ChallengeEntry } from "@/types";
 import { EntryForm } from "@/components/EntryForm";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { getChallenge } from "@/lib/api";
 
 export default function ChallengePage() {
   const params = useParams();
@@ -35,20 +36,13 @@ export default function ChallengePage() {
   useEffect(() => {
     const fetchChallenge = async () => {
       try {
-        const response = await fetch(`/api/challenges/${params.id}`);
-        if (!response.ok) {
-          if (response.status === 401) {
-            router.push("/auth/login");
-            return;
-          }
-          throw new Error("Failed to fetch challenge");
-        }
-        const data = await response.json();
+        const data = await getChallenge(params.id as string);
         setChallenge(data);
         await fetchEntries();
       } catch (err) {
-        setError("Failed to load challenge");
-        console.error(err);
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch challenge"
+        );
       } finally {
         setLoading(false);
       }
@@ -61,26 +55,39 @@ export default function ChallengePage() {
     return new Date(dateString).toLocaleDateString();
   };
 
+  const getCurrentTarget = (challenge: Challenge) => {
+    if (!challenge.isIncremental) {
+      return challenge.target;
+    }
+
+    const startDate = new Date(challenge.startDate);
+    const today = new Date();
+    const diffTime = Math.abs(today.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return challenge.baseValue + diffDays * challenge.incrementPerDay;
+  };
+
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        Loading...
       </div>
     );
   }
 
-  if (error || !challenge) {
+  if (error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <p className="text-red-500 text-center">
-              {error || "Challenge not found"}
-            </p>
-          </div>
-        </div>
+      <div className="flex justify-center items-center min-h-screen text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (!challenge) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        Challenge not found
       </div>
     );
   }
@@ -99,36 +106,43 @@ export default function ChallengePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-gray-900">Details</h2>
-                <p className="text-gray-600">
-                  <span className="font-medium">Type:</span> {challenge.type}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-medium">Target:</span>{" "}
-                  {challenge.target} {challenge.unit}
-                </p>
-                <p className="text-gray-600">
-                  <span className="font-medium">Frequency:</span>{" "}
-                  {challenge.frequency}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h2 className="text-lg font-semibold mb-2">Type</h2>
+                <p>{challenge.type}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h2 className="text-lg font-semibold mb-2">Frequency</h2>
+                <p>{challenge.frequency}</p>
+              </div>
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h2 className="text-lg font-semibold mb-2">Target</h2>
+                <p>
+                  {challenge.isIncremental ? (
+                    <>
+                      Today's target: {getCurrentTarget(challenge)}{" "}
+                      {challenge.unit}
+                      <br />
+                      <span className="text-sm text-gray-500">
+                        (Base: {challenge.baseValue}, +
+                        {challenge.incrementPerDay} per day)
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      {challenge.target} {challenge.unit}
+                    </>
+                  )}
                 </p>
               </div>
-
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Timeline
-                </h2>
-                <p className="text-gray-600">
-                  <span className="font-medium">Start Date:</span>{" "}
-                  {formatDate(challenge.startDate)}
+              <div className="bg-white p-4 rounded-lg shadow">
+                <h2 className="text-lg font-semibold mb-2">Duration</h2>
+                <p>
+                  {new Date(challenge.startDate).toLocaleDateString()} -{" "}
+                  {challenge.endDate
+                    ? new Date(challenge.endDate).toLocaleDateString()
+                    : "No end date"}
                 </p>
-                {challenge.endDate && (
-                  <p className="text-gray-600">
-                    <span className="font-medium">End Date:</span>{" "}
-                    {formatDate(challenge.endDate)}
-                  </p>
-                )}
               </div>
             </div>
 

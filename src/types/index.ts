@@ -11,6 +11,9 @@ export interface Challenge {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  isIncremental: boolean;
+  baseValue: number;
+  incrementPerDay: number;
 }
 
 export interface ChallengeEntry {
@@ -23,5 +26,5 @@ export interface ChallengeEntry {
   updatedAt: string;
 }
 
-export type ChallengeType = "HABIT" | "GOAL" | "CHALLENGE";
-export type Frequency = "DAILY" | "WEEKLY" | "MONTHLY";
+export type ChallengeType = "daily" | "weekly" | "monthly" | "custom";
+export type Frequency = "daily" | "weekly" | "monthly";

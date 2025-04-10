@@ -1,16 +1,37 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const supabase = createClientComponentClient();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        console.log("Current session:", session);
+        if (session) {
+          const redirectTo = searchParams.get("redirectedFrom") || "/";
+          console.log("Redirecting to:", redirectTo);
+          router.push(redirectTo);
+        }
+      } catch (err) {
+        console.error("Error checking session:", err);
+      }
+    };
+    checkSession();
+  }, [router, searchParams, supabase]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,17 +39,24 @@ export default function LoginPage() {
     setError(null);
 
     try {
+      console.log("Attempting to sign in with:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Sign in error:", error);
+        throw error;
+      }
 
-      router.push("/");
-      router.refresh();
+      console.log("Sign in successful:", data);
+      const redirectTo = searchParams.get("redirectedFrom") || "/";
+      console.log("Redirecting to:", redirectTo);
+      router.push(redirectTo);
     } catch (error: any) {
-      setError(error.message);
+      console.error("Login error:", error);
+      setError(error.message || "An error occurred during sign in");
     } finally {
       setLoading(false);
     }
@@ -104,5 +132,19 @@ export default function LoginPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 
 export default function SignUpPage() {
   const [email, setEmail] = useState("");
@@ -12,6 +12,7 @@ export default function SignUpPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const supabase = createClientComponentClient();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,12 +20,25 @@ export default function SignUpPage() {
     setError(null);
 
     try {
+      console.log("Attempting to sign up with:", { email, name });
+
+      // First, sign up the user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
       });
 
-      if (authError) throw authError;
+      if (authError) {
+        console.error("Auth error:", authError);
+        throw authError;
+      }
+
+      console.log("Auth data:", authData);
 
       if (authData.user) {
         // Create user profile in our database
@@ -33,17 +47,25 @@ export default function SignUpPage() {
             id: authData.user.id,
             email: email,
             name: name,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           },
         ]);
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          console.error("Profile creation error:", profileError);
+          throw profileError;
+        }
+
+        console.log("Profile created successfully");
       }
 
       router.push(
         "/auth/login?message=Please check your email to confirm your account"
       );
     } catch (error: any) {
-      setError(error.message);
+      console.error("Signup error:", error);
+      setError(error.message || "An error occurred during sign up");
     } finally {
       setLoading(false);
     }
