@@ -1,10 +1,21 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { cookies } from "next/headers";
 
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const challenge = await prisma.challenge.create({
       data: {
@@ -16,7 +27,7 @@ export async function POST(request: Request) {
         frequency: body.frequency,
         startDate: new Date(body.startDate),
         endDate: body.endDate ? new Date(body.endDate) : null,
-        userId: "1", // TODO: Replace with actual user ID from auth
+        userId: session.user.id,
       },
     });
 
@@ -32,9 +43,18 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const challenges = await prisma.challenge.findMany({
       where: {
-        userId: "1", // TODO: Replace with actual user ID from auth
+        userId: session.user.id,
       },
     });
 
