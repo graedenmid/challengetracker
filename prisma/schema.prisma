@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,44 +8,54 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  challenges    Challenge[]
+  id         String      @id @default(uuid())
+  email      String      @unique
+  name       String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  challenges Challenge[]
 }
 
 model Challenge {
-  id            String    @id @default(cuid())
-  title         String
-  description   String?
-  type          ChallengeType
-  target        Int
-  unit          String
-  frequency     String
-  startDate     DateTime
-  endDate       DateTime?
-  userId        String
-  user          User      @relation(fields: [userId], references: [id])
-  entries       ChallengeEntry[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id              String           @id @default(uuid())
+  title           String
+  description     String?
+  type            ChallengeType
+  target          Int
+  unit            String
+  frequency       Frequency
+  startDate       DateTime
+  endDate         DateTime?
+  userId          String
+  isIncremental   Boolean          @default(false)
+  baseValue       Int              @default(1)
+  incrementPerDay Int              @default(1)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  user            User             @relation(fields: [userId], references: [id])
+  entries         ChallengeEntry[]
 }
 
 model ChallengeEntry {
-  id            String    @id @default(cuid())
-  challengeId   String
-  challenge     Challenge @relation(fields: [challengeId], references: [id])
-  date          DateTime
-  value         Int
-  notes         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id          String    @id @default(uuid())
+  challengeId String
+  date        DateTime
+  value       Int
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
 }
 
 enum ChallengeType {
-  HABIT
-  GOAL
-  CHALLENGE
-} 
+  daily
+  weekly
+  monthly
+  custom
+}
+
+enum Frequency {
+  daily
+  weekly
+  monthly
+}

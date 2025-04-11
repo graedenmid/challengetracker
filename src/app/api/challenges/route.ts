@@ -1,6 +1,6 @@
-import { NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
@@ -34,14 +34,15 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      throw error;
+      console.error("Error creating challenge:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json(challenge);
   } catch (error) {
-    console.error("Error creating challenge:", error);
+    console.error("Error in POST /api/challenges:", error);
     return NextResponse.json(
-      { error: "Failed to create challenge" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
@@ -61,17 +62,38 @@ export async function GET() {
     const { data: challenges, error } = await supabase
       .from("challenges")
       .select("*")
-      .eq("user_id", session.user.id);
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false });
 
     if (error) {
-      throw error;
+      console.error("Error fetching challenges:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(challenges);
+    // Map database field names to our API model field names
+    const mappedChallenges = challenges.map((challenge) => ({
+      id: challenge.id,
+      title: challenge.title,
+      description: challenge.description,
+      type: challenge.type,
+      target: challenge.target,
+      unit: challenge.unit,
+      frequency: challenge.frequency,
+      startDate: challenge.start_date,
+      endDate: challenge.end_date,
+      userId: challenge.user_id,
+      createdAt: challenge.created_at,
+      updatedAt: challenge.updated_at,
+      isIncremental: challenge.is_incremental,
+      baseValue: challenge.base_value,
+      incrementPerDay: challenge.increment_per_day,
+    }));
+
+    return NextResponse.json(mappedChallenges);
   } catch (error) {
-    console.error("Error fetching challenges:", error);
+    console.error("Error in GET /api/challenges:", error);
     return NextResponse.json(
-      { error: "Failed to fetch challenges" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }
