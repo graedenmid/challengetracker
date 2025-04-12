@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function ProtectedRoute({
@@ -13,16 +13,22 @@ export default function ProtectedRoute({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const supabase = createBrowserClient();
 
   useEffect(() => {
     const checkAuth = async () => {
+      console.log("ProtectedRoute: Checking authentication");
+
       const {
         data: { session },
       } = await supabase.auth.getSession();
+
+      console.log("ProtectedRoute: Session exists:", !!session);
       setUser(session?.user ?? null);
       setLoading(false);
 
       if (!session) {
+        console.log("ProtectedRoute: No session found, redirecting to login");
         router.push("/auth/login");
       }
     };
@@ -32,14 +38,19 @@ export default function ProtectedRoute({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log(
+        "ProtectedRoute: Auth state changed, session exists:",
+        !!session
+      );
       setUser(session?.user ?? null);
       if (!session) {
+        console.log("ProtectedRoute: Session ended, redirecting to login");
         router.push("/auth/login");
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [router]);
+  }, [router, supabase]);
 
   if (loading) {
     return (

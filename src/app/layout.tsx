@@ -21,12 +21,18 @@ export default function RootLayout({ children }: RootLayoutProps) {
   // so we'll check the URL in the client components (Layout and ProtectedRoute)
 
   return (
-    <html lang="en">
+    <html lang="en" className="h-full">
       <head>
         <link rel="icon" href="/favicon.ico" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Open+Sans:wght@400;500;600;700&display=swap"
+          rel="stylesheet"
+        />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
-      <body className="bg-gray-50 text-gray-700">{children}</body>
+      <body className="bg-gray-50 text-gray-700 min-h-full font-sans">
+        {children}
+      </body>
     </html>
   );
 }

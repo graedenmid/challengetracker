@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabase";
+import { createBrowserClient } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function Header() {
@@ -12,18 +12,22 @@ export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const supabase = createBrowserClient();
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        console.log("Header: Fetching user session");
         const {
           data: { session },
         } = await supabase.auth.getSession();
+        console.log("Header: Session exists:", !!session);
         setUser(session?.user || null);
 
         const {
           data: { subscription },
         } = supabase.auth.onAuthStateChange((_event, session) => {
+          console.log("Header: Auth state changed, session exists:", !!session);
           setUser(session?.user || null);
         });
 
@@ -36,10 +40,11 @@ export default function Header() {
     };
 
     fetchUser();
-  }, []);
+  }, [supabase]);
 
   // Navigation links configuration
   const navLinks = [
+    { name: "Home", href: "/home" },
     { name: "Dashboard", href: "/challenges" },
     { name: "New Challenge", href: "/challenges/new" },
   ];
@@ -97,8 +102,9 @@ export default function Header() {
               </>
             ) : (
               <>
-                <Link
+                <a
                   href="/auth/login"
+                  data-testid="login-link"
                   className={`text-sm font-medium transition-colors py-2 ${
                     isActive("/auth/login")
                       ? "text-primary border-b-2 border-primary"
@@ -106,7 +112,7 @@ export default function Header() {
                   }`}
                 >
                   Login
-                </Link>
+                </a>
                 <Link href="/auth/signup" className="btn-primary text-sm">
                   Sign Up
                 </Link>
@@ -178,17 +184,17 @@ export default function Header() {
             </>
           ) : (
             <>
-              <Link
+              <a
                 href="/auth/login"
+                data-testid="mobile-login-link"
                 className={`block py-2 text-base font-medium ${
                   isActive("/auth/login")
                     ? "text-primary"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
-                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Login
-              </Link>
+              </a>
               <Link
                 href="/auth/signup"
                 className={`block py-2 text-base font-medium ${

@@ -122,4 +122,42 @@
   .transition-slow {
     @apply transition-all duration-500;
   }
+
+  /* Background colors */
+  .bg-primary {
+    background-color: #3b82f6;
+  }
+
+  .bg-primary-light {
+    background-color: #60a5fa;
+  }
+
+  .bg-primary-dark {
+    background-color: #2563eb;
+  }
+
+  .bg-secondary {
+    background-color: #10b981;
+  }
+
+  .bg-accent {
+    background-color: #f59e0b;
+  }
+
+  /* Text colors */
+  .text-primary {
+    color: #3b82f6;
+  }
+
+  .text-primary-dark {
+    color: #2563eb;
+  }
+
+  .text-secondary {
+    color: #10b981;
+  }
+
+  .text-accent {
+    color: #f59e0b;
+  }
 }

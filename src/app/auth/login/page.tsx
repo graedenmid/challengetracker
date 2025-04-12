@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createBrowserClient } from "@/lib/supabase";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -13,7 +14,7 @@ function LoginForm() {
   const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient();
 
   useEffect(() => {
     // Check for message in URL
@@ -21,27 +22,14 @@ function LoginForm() {
     if (msg) {
       setMessage(msg);
     }
-
-    const checkSession = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session) {
-          const redirectTo = searchParams.get("redirectedFrom") || "/";
-          router.push(redirectTo);
-        }
-      } catch (err) {
-        console.error("Error checking session:", err);
-      }
-    };
-    checkSession();
-  }, [router, searchParams, supabase]);
+  }, [searchParams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    console.log("Login attempt with email:", email);
 
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
@@ -49,11 +37,19 @@ function LoginForm() {
         password,
       });
 
+      console.log("Login response:", {
+        data: data ? "exists" : "none",
+        error: error ? error.message : "none",
+      });
+
       if (error) {
         throw error;
       }
 
-      const redirectTo = searchParams.get("redirectedFrom") || "/";
+      console.log("Login successful, redirecting...");
+      // Default to challenges dashboard, but use redirectedFrom if available
+      const redirectTo = searchParams.get("redirectedFrom") || "/challenges";
+      console.log("Redirecting to:", redirectTo);
       router.push(redirectTo);
     } catch (error: any) {
       console.error("Login error:", error);
