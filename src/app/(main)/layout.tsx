@@ -3,11 +3,11 @@
 import Layout from "@/components/layout/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
-export default function ChallengesLayout({
-  children,
-}: {
+interface MainLayoutProps {
   children: React.ReactNode;
-}) {
+}
+
+export default function MainLayout({ children }: MainLayoutProps) {
   return (
     <ProtectedRoute>
       <Layout>{children}</Layout>

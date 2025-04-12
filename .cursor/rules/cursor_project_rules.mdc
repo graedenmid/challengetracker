@@ -143,3 +143,50 @@ Performance Optimization:
 Version Control:
 
 Rule: When over 5 files have been edited, read and follow 'version-control.mdc' file.
+
+DESIGN GUIDELINES:
+
+Color Palette
+Primary: Indigo (#3B82F6) - buttons, links.
+
+Secondary: Emerald (#10B981) - completed tasks.
+
+Accent: Amber (#F59E0B) - CTAs, warnings.
+
+Background: Gray-50 (#F9FAFB) - app background.
+
+Text: Gray-700 (#374151) - body; Gray-800 (#1F2937) - headings.
+
+Fonts
+Primary: Inter - body text, modern, readable.
+
+Secondary: Open Sans - headings, subtle contrast.
+
+Layout
+Dashboard: Today’s habits (checkboxes), progress bar, "Add Habit" button.
+
+Habits List: Table with name, frequency, streak, edit/delete icons.
+
+Calendar View: Monthly grid, highlight completed days, click for details.
+
+Settings: Profile, notifications, light/dark mode, account options.
+
+Design Principles
+Clean UI: Use shadcn/ui, customize with palette/fonts.
+
+Responsive: Tailwind utilities for all devices.
+
+Accessible: WCAG AA contrast, keyboard navigation, semantic HTML.
+
+Themes: Support light/dark modes (Tailwind dark: prefix).
+
+Features
+Feedback: Animations for completed habits (e.g., checkmark).
+
+Categories: Color-coded habit labels.
+
+Consistency: Apply palette/fonts to login/registration pages.
+
+Notes: Ensure motivational elements (streaks, progress bars) and Supabase Auth integration. Use Tailwind for styling, shadcn/ui for components, and verify responsiveness.
+
+

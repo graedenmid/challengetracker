@@ -10,20 +10,25 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClientComponentClient();
 
   useEffect(() => {
+    // Check for message in URL
+    const msg = searchParams.get("message");
+    if (msg) {
+      setMessage(msg);
+    }
+
     const checkSession = async () => {
       try {
         const {
           data: { session },
         } = await supabase.auth.getSession();
-        console.log("Current session:", session);
         if (session) {
           const redirectTo = searchParams.get("redirectedFrom") || "/";
-          console.log("Redirecting to:", redirectTo);
           router.push(redirectTo);
         }
       } catch (err) {
@@ -39,20 +44,16 @@ function LoginForm() {
     setError(null);
 
     try {
-      console.log("Attempting to sign in with:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
-        console.error("Sign in error:", error);
         throw error;
       }
 
-      console.log("Sign in successful:", data);
       const redirectTo = searchParams.get("redirectedFrom") || "/";
-      console.log("Redirecting to:", redirectTo);
       router.push(redirectTo);
     } catch (error: any) {
       console.error("Login error:", error);
@@ -64,72 +65,90 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
+      <div className="max-w-md w-full card">
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-800">Welcome Back</h2>
+          <p className="mt-2 text-gray-600">
+            Sign in to continue to Challenge Tracker
+          </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
-            </div>
-          )}
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="email-address" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
+
+        {message && (
+          <div className="mb-6 bg-blue-50 text-blue-700 p-4 rounded-md">
+            {message}
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-md">
+            {error}
+          </div>
+        )}
+
+        <form className="space-y-6" onSubmit={handleLogin}>
+          <div>
+            <label htmlFor="email-address" className="label">
+              Email address
+            </label>
+            <input
+              id="email-address"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              className="input"
+              placeholder="john@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <label htmlFor="password" className="label">
                 Password
               </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="text-sm">
+                <a href="#" className="text-primary hover:text-primary-dark">
+                  Forgot password?
+                </a>
+              </div>
             </div>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              className="input"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
           </div>
 
           <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="btn-primary w-full py-2"
             >
               {loading ? "Signing in..." : "Sign in"}
             </button>
           </div>
+        </form>
 
-          <div className="text-sm text-center">
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
             <Link
               href="/auth/signup"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
+              className="text-primary font-medium hover:text-primary-dark"
             >
-              Don't have an account? Sign up
+              Sign up
             </Link>
-          </div>
-        </form>
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -140,7 +159,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>
       }
     >
