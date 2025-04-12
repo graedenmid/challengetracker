@@ -3,7 +3,9 @@ import { Challenge, ChallengeEntry } from "@/types";
 const API_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function getChallenges(): Promise<Challenge[]> {
-  const response = await fetch(`${API_URL}/api/challenges`);
+  const response = await fetch(`${API_URL}/api/challenges`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch challenges");
   }
@@ -11,7 +13,9 @@ export async function getChallenges(): Promise<Challenge[]> {
 }
 
 export async function getChallenge(id: string): Promise<Challenge> {
-  const response = await fetch(`${API_URL}/api/challenges/${id}`);
+  const response = await fetch(`${API_URL}/api/challenges/${id}`, {
+    credentials: "include",
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch challenge");
   }
@@ -26,6 +30,7 @@ export async function createChallenge(
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify(challenge),
   });
   if (!response.ok) {
@@ -37,6 +42,7 @@ export async function createChallenge(
 export async function deleteChallenge(id: string): Promise<void> {
   const response = await fetch(`${API_URL}/api/challenges/${id}`, {
     method: "DELETE",
+    credentials: "include",
   });
   if (!response.ok) {
     throw new Error("Failed to delete challenge");
@@ -47,7 +53,10 @@ export async function getChallengeEntries(
   challengeId: string
 ): Promise<ChallengeEntry[]> {
   const response = await fetch(
-    `${API_URL}/api/challenges/${challengeId}/entries`
+    `${API_URL}/api/challenges/${challengeId}/entries`,
+    {
+      credentials: "include",
+    }
   );
   if (!response.ok) {
     throw new Error("Failed to fetch entries");
@@ -66,6 +75,7 @@ export async function createChallengeEntry(
       headers: {
         "Content-Type": "application/json",
       },
+      credentials: "include",
       body: JSON.stringify(entry),
     }
   );
@@ -86,6 +96,7 @@ export async function updateChallenge(
     headers: {
       "Content-Type": "application/json",
     },
+    credentials: "include",
     body: JSON.stringify(challenge),
   });
   if (!response.ok) {
