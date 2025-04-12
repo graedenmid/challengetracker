@@ -123,6 +123,34 @@
     @apply transition-all duration-500;
   }
 
+  /* Icon sizes - ensure consistent sizing across the app */
+  .icon-xs {
+    @apply w-3 h-3;
+  }
+
+  .icon-sm {
+    @apply w-4 h-4;
+  }
+
+  .icon-md {
+    @apply w-5 h-5;
+  }
+
+  .icon-lg {
+    @apply w-6 h-6;
+  }
+
+  /* Apply icon sizing to SVGs in specific contexts */
+  h1 svg,
+  h2 svg,
+  h3 svg {
+    @apply w-4 h-4 !important;
+  }
+
+  button svg {
+    @apply w-3.5 h-3.5 !important;
+  }
+
   /* Background colors */
   .bg-primary {
     background-color: #3b82f6;
