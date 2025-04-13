@@ -27,16 +27,32 @@ export function EntryForm({
   const [quickComplete, setQuickComplete] = useState(false);
 
   const getCurrentTarget = (date: string) => {
-    if (!challenge.isIncremental) {
-      return challenge.target;
+    // If the selected date is before the challenge start date, return 0
+    try {
+      const selectedDate = new Date(date);
+      const startDate = new Date(challenge.startDate);
+
+      // Set times to noon to avoid timezone issues
+      selectedDate.setHours(12, 0, 0, 0);
+      startDate.setHours(12, 0, 0, 0);
+
+      if (selectedDate < startDate) {
+        console.log("Selected date is before challenge start date. Target: 0");
+        return 0;
+      }
+
+      if (!challenge.isIncremental) {
+        return challenge.target;
+      }
+
+      const diffTime = Math.abs(selectedDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return challenge.baseValue + diffDays * challenge.incrementPerDay;
+    } catch (error) {
+      console.error("Error calculating target:", error);
+      return challenge.isIncremental ? challenge.baseValue : challenge.target;
     }
-
-    const startDate = new Date(challenge.startDate);
-    const targetDate = new Date(date);
-    const diffTime = Math.abs(targetDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    return challenge.baseValue + diffDays * challenge.incrementPerDay;
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -44,7 +60,8 @@ export function EntryForm({
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     const date = formData.get("date") as string;
 
     // If quickComplete is true, use the target value, otherwise use the input value
@@ -88,37 +105,65 @@ export function EntryForm({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         body: JSON.stringify({
           date: formattedDate,
-          value,
-          notes: notes || null,
+          value: Number(value),
+          notes: notes || "",
         }),
+        credentials: "include",
       });
 
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        console.error("Error response:", errorResponse);
-        throw new Error(errorResponse.error || "Failed to add entry");
+      // Get response data
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        throw new Error("Failed to parse server response");
       }
 
-      // Reset form and clear any errors
-      e.currentTarget.reset();
-      // Reset date to today using the same format as our initialization
+      if (!response.ok) {
+        console.error("Error response:", responseData);
+        throw new Error(responseData.error || "Failed to add entry");
+      }
+
+      console.log("Entry added successfully:", responseData);
+
+      // Clear form values by setting input values directly rather than using reset
+      try {
+        const valueInput = form.querySelector(
+          'input[name="value"]'
+        ) as HTMLInputElement;
+        const notesInput = form.querySelector(
+          'textarea[name="notes"]'
+        ) as HTMLTextAreaElement;
+
+        if (valueInput) valueInput.value = "";
+        if (notesInput) notesInput.value = "";
+      } catch (resetError) {
+        console.error("Error resetting form:", resetError);
+      }
+
+      // Reset date to today
       const today = new Date();
       const formattedToday = `${today.getFullYear()}-${String(
         today.getMonth() + 1
       ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
       setSelectedDate(formattedToday);
       setQuickComplete(false);
-      setError(null); // Explicitly clear error
+      setError(null);
 
-      // Wait a brief moment to ensure state updates before calling onEntryAdded
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Refresh entries list
       onEntryAdded();
     } catch (err) {
-      setError("Failed to add entry. Please try again.");
       console.error("Error adding entry:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to add entry. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -139,19 +184,31 @@ export function EntryForm({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
         },
         body: JSON.stringify({
           date: formattedDate,
-          value: todayTarget,
+          value: Number(todayTarget),
           notes: "Completed via quick complete",
         }),
+        credentials: "include",
       });
 
-      if (!response.ok) {
-        const errorResponse = await response.json();
-        console.error("Error response:", errorResponse);
-        throw new Error(errorResponse.error || "Failed to add entry");
+      // Get response data
+      let responseData;
+      try {
+        responseData = await response.json();
+      } catch (parseError) {
+        console.error("Error parsing response:", parseError);
+        throw new Error("Failed to parse server response");
       }
+
+      if (!response.ok) {
+        console.error("Error response:", responseData);
+        throw new Error(responseData.error || "Failed to add entry");
+      }
+
+      console.log("Quick complete entry added successfully:", responseData);
 
       // Reset form and clear any errors
       // Reset date to today using the same format as our initialization
@@ -163,12 +220,15 @@ export function EntryForm({
       setQuickComplete(false);
       setError(null);
 
-      // Wait a brief moment to ensure state updates before calling onEntryAdded
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Call onEntryAdded immediately - no need for timeout
       onEntryAdded();
     } catch (err) {
-      setError("Failed to add entry. Please try again.");
       console.error("Error with quick complete:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to add entry. Please try again."
+      );
     } finally {
       setLoading(false);
     }
