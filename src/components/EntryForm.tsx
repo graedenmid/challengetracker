@@ -25,6 +25,81 @@ export function EntryForm({
     )}-${String(now.getDate()).padStart(2, "0")}`;
   });
   const [quickComplete, setQuickComplete] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [calendarDates, setCalendarDates] = useState<
+    { date: string; isSelectable: boolean; isSelected: boolean }[]
+  >([]);
+
+  // Initialize calendar dates when modal opens
+  useEffect(() => {
+    if (showBulkModal) {
+      generateCalendarDates();
+    }
+  }, [showBulkModal]);
+
+  // Generate dates for the calendar
+  const generateCalendarDates = () => {
+    const dates: {
+      date: string;
+      isSelectable: boolean;
+      isSelected: boolean;
+    }[] = [];
+
+    // Start date of the challenge
+    const start = new Date(challenge.startDate);
+    start.setHours(0, 0, 0, 0);
+
+    // End date is either the challenge end date or today, whichever is earlier
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const end = challenge.endDate
+      ? new Date(
+          Math.min(new Date(challenge.endDate).getTime(), today.getTime())
+        )
+      : today;
+
+    // If start date is in the future, no dates are selectable
+    if (start > today) {
+      setCalendarDates([]);
+      return;
+    }
+
+    // Generate dates from start to end
+    let current = new Date(start);
+    while (current <= end) {
+      const dateStr = formatDateForInput(current);
+      dates.push({
+        date: dateStr,
+        isSelectable: true,
+        isSelected: selectedDates.includes(dateStr),
+      });
+      current.setDate(current.getDate() + 1);
+    }
+
+    setCalendarDates(dates);
+  };
+
+  // Format a date as YYYY-MM-DD
+  const formatDateForInput = (date: Date): string => {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+      2,
+      "0"
+    )}-${String(date.getDate()).padStart(2, "0")}`;
+  };
+
+  // Format a date for display
+  const formatDateForDisplay = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const getCurrentTarget = (date: string) => {
     // If the selected date is before the challenge start date, return 0
@@ -234,6 +309,82 @@ export function EntryForm({
     }
   };
 
+  // Handle toggling a date in the calendar
+  const toggleDateSelection = (dateStr: string) => {
+    setSelectedDates((prev) => {
+      if (prev.includes(dateStr)) {
+        return prev.filter((d) => d !== dateStr);
+      } else {
+        return [...prev, dateStr];
+      }
+    });
+
+    // Update the calendar dates
+    setCalendarDates((prev) =>
+      prev.map((item) =>
+        item.date === dateStr ? { ...item, isSelected: !item.isSelected } : item
+      )
+    );
+  };
+
+  // Handle bulk submission
+  const handleBulkSubmit = async () => {
+    if (selectedDates.length === 0) {
+      setBulkError("Please select at least one date");
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkError(null);
+
+    try {
+      // Process dates in sequence to avoid overwhelming the server
+      for (const dateStr of selectedDates) {
+        const target = getCurrentTarget(dateStr);
+        const formattedDate = dateStr + "T00:00:00.000Z";
+
+        const response = await fetch(`/api/challenges/${challengeId}/entries`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+          },
+          body: JSON.stringify({
+            date: formattedDate,
+            value: target,
+            notes: "Added via bulk completion",
+          }),
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || `Failed to add entry for ${dateStr}`
+          );
+        }
+      }
+
+      console.log(`Successfully added ${selectedDates.length} entries`);
+
+      // Clear selections and close modal
+      setSelectedDates([]);
+      setShowBulkModal(false);
+
+      // Refresh entries list
+      onEntryAdded();
+    } catch (err) {
+      console.error("Error adding bulk entries:", err);
+      setBulkError(
+        err instanceof Error
+          ? err.message
+          : "Failed to add entries. Please try again."
+      );
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -243,14 +394,23 @@ export function EntryForm({
             {getCurrentTarget(selectedDate)} {challenge.unit}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={handleQuickComplete}
-          disabled={loading}
-          className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
-        >
-          Complete Today
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setShowBulkModal(true)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          >
+            Add Past Completions
+          </button>
+          <button
+            type="button"
+            onClick={handleQuickComplete}
+            disabled={loading}
+            className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            Complete Today
+          </button>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -325,6 +485,154 @@ export function EntryForm({
           </button>
         </div>
       </form>
+
+      {/* Bulk Add Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full animate-slide-up">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="icon-sm mr-2 text-primary"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"
+                  />
+                </svg>
+                Add Past Completions
+              </h2>
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="icon-md"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Select the dates you've completed this challenge. Each date will
+              be marked as completed with that day's target.
+            </p>
+
+            {calendarDates.length === 0 ? (
+              <div className="p-4 bg-gray-50 rounded-lg text-center">
+                <p className="text-gray-500">
+                  No past dates available for selection.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 mb-4">
+                {calendarDates.map((item) => (
+                  <button
+                    key={item.date}
+                    onClick={() => toggleDateSelection(item.date)}
+                    disabled={!item.isSelectable}
+                    className={`p-2 rounded text-sm ${
+                      item.isSelected
+                        ? "bg-indigo-100 border-2 border-indigo-500"
+                        : "bg-white border border-gray-200 hover:border-indigo-300"
+                    } ${
+                      !item.isSelectable
+                        ? "opacity-50 cursor-not-allowed"
+                        : "cursor-pointer"
+                    }`}
+                  >
+                    <div className="text-xs text-gray-500">
+                      {formatDateForDisplay(item.date)}
+                    </div>
+                    <div className="mt-1 font-medium text-gray-800">
+                      {getCurrentTarget(item.date)} {challenge.unit}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="bg-gray-50 p-3 rounded-lg mb-4">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Selected dates:</span>
+                <span className="text-sm font-medium">
+                  {selectedDates.length}
+                </span>
+              </div>
+            </div>
+
+            {bulkError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-600 text-sm">{bulkError}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50"
+                disabled={bulkLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBulkSubmit}
+                disabled={bulkLoading || selectedDates.length === 0}
+                className={`px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors flex items-center ${
+                  bulkLoading || selectedDates.length === 0
+                    ? "opacity-50 cursor-not-allowed"
+                    : ""
+                }`}
+              >
+                {bulkLoading ? (
+                  <>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>Add Entries</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
