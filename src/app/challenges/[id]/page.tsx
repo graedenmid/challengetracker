@@ -57,18 +57,22 @@ export default function ChallengeDetail() {
 
   const handleEntryAdded = async () => {
     try {
+      console.log("Refreshing entries list after adding entry");
       const response = await fetch(`/api/challenges/${params.id}/entries`, {
         cache: "no-store", // Ensure we're not getting cached data
         headers: {
           "Cache-Control": "no-cache",
         },
+        credentials: "include", // Include auth cookies
       });
 
       if (!response.ok) {
+        console.error("Failed to fetch entries after adding entry");
         throw new Error("Failed to fetch entries");
       }
 
       const data = await response.json();
+      console.log(`Fetched ${data.length} entries after adding entry`);
       setEntries(data);
     } catch (err) {
       console.error("Failed to load entries:", err);
@@ -315,6 +319,15 @@ export default function ChallengeDetail() {
       console.log(
         `Start date obj: ${startDate.toISOString()}, Today obj: ${todayDate.toISOString()}`
       );
+
+      // Check if today is before the start date
+      if (todayDate < startDate) {
+        // If today is before the start date, return 0 to indicate no progress is expected
+        console.log(
+          "Today is before the challenge start date. Expected progress: 0"
+        );
+        return 0;
+      }
 
       // Calculate days difference (add 1 to include the start day)
       const diffTime = Math.max(0, todayDate.getTime() - startDate.getTime());
