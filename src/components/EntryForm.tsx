@@ -228,7 +228,6 @@ export function EntryForm({
               name="value"
               required={!quickComplete}
               min="0"
-              max={getCurrentTarget(selectedDate)}
               className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
             />
             <p className="mt-1 text-sm text-gray-500">
