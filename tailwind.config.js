@@ -29,7 +29,7 @@ module.exports = {
         info: "#3B82F6", // Indigo
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Manrope", "system-ui", "sans-serif"],
         heading: ['"Open Sans"', "system-ui", "sans-serif"],
       },
       boxShadow: {

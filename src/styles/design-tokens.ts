@@ -45,7 +45,7 @@ export const colors = {
 
 export const typography = {
   fontFamily: {
-    body: "Inter, system-ui, sans-serif",
+    body: "Manrope, system-ui, sans-serif",
     heading: '"Open Sans", system-ui, sans-serif',
   },
   fontSize: {
