@@ -2,6 +2,34 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+function mapDatabaseChallenge(dbChallenge: any) {
+  // Check if we need to handle the legacy column name
+  if (
+    dbChallenge.increment_per_day !== undefined &&
+    dbChallenge.increment_value === undefined
+  ) {
+    dbChallenge.increment_value = dbChallenge.increment_per_day;
+  }
+
+  return {
+    id: dbChallenge.id,
+    title: dbChallenge.title,
+    description: dbChallenge.description,
+    type: dbChallenge.type,
+    target: dbChallenge.target,
+    unit: dbChallenge.unit,
+    frequency: dbChallenge.frequency,
+    startDate: dbChallenge.start_date,
+    endDate: dbChallenge.end_date,
+    userId: dbChallenge.user_id,
+    createdAt: dbChallenge.created_at,
+    updatedAt: dbChallenge.updated_at,
+    isIncremental: dbChallenge.is_incremental,
+    baseValue: dbChallenge.base_value,
+    incrementValue: dbChallenge.increment_value || 0, // Provide fallback
+  };
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }

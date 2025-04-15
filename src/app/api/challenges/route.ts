@@ -23,12 +23,12 @@ export async function POST(request: Request) {
         target: body.target,
         unit: body.unit,
         frequency: body.frequency,
-        start_date: body.startDate,
-        end_date: body.endDate,
+        start_date: new Date(body.startDate),
+        end_date: body.endDate ? new Date(body.endDate) : null,
         user_id: session.user.id,
         is_incremental: body.isIncremental,
         base_value: body.baseValue,
-        increment_per_day: body.incrementPerDay,
+        increment_value: body.incrementValue,
       })
       .select()
       .single();
@@ -38,7 +38,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json(challenge);
+    // Map database field names to our API model field names for the response
+    const mappedChallenge = {
+      id: challenge.id,
+      title: challenge.title,
+      description: challenge.description,
+      type: challenge.type,
+      target: challenge.target,
+      unit: challenge.unit,
+      frequency: challenge.frequency,
+      startDate: challenge.start_date,
+      endDate: challenge.end_date,
+      userId: challenge.user_id,
+      createdAt: challenge.created_at,
+      updatedAt: challenge.updated_at,
+      isIncremental: challenge.is_incremental,
+      baseValue: challenge.base_value,
+      incrementValue: challenge.increment_value,
+    };
+
+    console.log("Created challenge:", challenge);
+    console.log("Mapped challenge for response:", mappedChallenge);
+
+    return NextResponse.json(mappedChallenge);
   } catch (error) {
     console.error("Error in POST /api/challenges:", error);
     return NextResponse.json(
@@ -86,7 +108,7 @@ export async function GET() {
       updatedAt: challenge.updated_at,
       isIncremental: challenge.is_incremental,
       baseValue: challenge.base_value,
-      incrementPerDay: challenge.increment_per_day,
+      incrementValue: challenge.increment_value,
     }));
 
     return NextResponse.json(mappedChallenges);

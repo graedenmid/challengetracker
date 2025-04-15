@@ -11,9 +11,9 @@ export interface Challenge {
   userId: string;
   createdAt: string;
   updatedAt: string;
-  isIncremental: boolean;
-  baseValue: number;
-  incrementPerDay: number;
+  isIncremental?: boolean;
+  baseValue?: number;
+  incrementValue: number;
 }
 
 export interface ChallengeEntry {

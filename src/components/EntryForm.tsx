@@ -48,19 +48,27 @@ export function EntryForm({
       isSelected: boolean;
     }[] = [];
 
-    // Start date of the challenge
-    const start = new Date(challenge.startDate);
-    start.setHours(0, 0, 0, 0);
+    // Start date of the challenge - parse date components to avoid timezone issues
+    const startDateStr = challenge.startDate.split("T")[0];
+    const [startYear, startMonth, startDay] = startDateStr
+      .split("-")
+      .map(Number);
+    // Create date with date components only (with noon time to avoid any timezone edge cases)
+    const start = new Date(startYear, startMonth - 1, startDay, 12, 0, 0, 0);
 
     // End date is either the challenge end date or today, whichever is earlier
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(12, 0, 0, 0);
 
-    const end = challenge.endDate
-      ? new Date(
-          Math.min(new Date(challenge.endDate).getTime(), today.getTime())
-        )
-      : today;
+    let end;
+    if (challenge.endDate) {
+      const endDateStr = challenge.endDate.split("T")[0];
+      const [endYear, endMonth, endDay] = endDateStr.split("-").map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0, 0);
+      end = new Date(Math.min(endDate.getTime(), today.getTime()));
+    } else {
+      end = today;
+    }
 
     // If start date is in the future, no dates are selectable
     if (start > today) {
@@ -93,7 +101,11 @@ export function EntryForm({
 
   // Format a date for display
   const formatDateForDisplay = (dateStr: string): string => {
-    const date = new Date(dateStr);
+    // Parse the date string manually to avoid timezone issues
+    const [year, month, day] = dateStr.split("-").map(Number);
+    // Create date with consistent timezone handling (noon to avoid any date shifting)
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+
     return date.toLocaleDateString(undefined, {
       weekday: "short",
       month: "short",
@@ -120,13 +132,50 @@ export function EntryForm({
         return challenge.target;
       }
 
-      const diffTime = Math.abs(selectedDate.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // Calculate time units difference based on frequency
+      const diffTime = selectedDate.getTime() - startDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-      return challenge.baseValue + diffDays * challenge.incrementPerDay;
+      let units = 0;
+
+      if (challenge.frequency === "daily") {
+        units = diffDays;
+      } else if (challenge.frequency === "weekly") {
+        units = Math.floor(diffDays / 7);
+      } else if (challenge.frequency === "monthly") {
+        // Approximate months by getting the difference in months between dates
+        const startMonth = startDate.getMonth();
+        const selectedMonth = selectedDate.getMonth();
+        const startYear = startDate.getFullYear();
+        const selectedYear = selectedDate.getFullYear();
+
+        units = (selectedYear - startYear) * 12 + (selectedMonth - startMonth);
+
+        // Adjust for day of month (if we haven't reached same day in the month, subtract 1)
+        if (selectedDate.getDate() < startDate.getDate()) {
+          units -= 1;
+        }
+
+        // Make sure we don't go negative
+        units = Math.max(0, units);
+      }
+
+      console.log(
+        `Date: ${date}, Start date: ${challenge.startDate}, Frequency: ${challenge.frequency}, Units: ${units}`
+      );
+      // Use default values for baseValue and incrementValue if they're undefined
+      const baseValue = challenge.baseValue || 1;
+      const incrementValue = challenge.incrementValue || 1;
+      const target = baseValue + units * incrementValue;
+      console.log(`Calculated target: ${target}`);
+
+      return target;
     } catch (error) {
       console.error("Error calculating target:", error);
-      return challenge.isIncremental ? challenge.baseValue : challenge.target;
+      // Provide default values for baseValue to handle undefined cases
+      return challenge.isIncremental
+        ? challenge.baseValue || 1
+        : challenge.target;
     }
   };
 
