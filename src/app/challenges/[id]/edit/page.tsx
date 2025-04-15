@@ -24,7 +24,7 @@ export default function EditChallengePage() {
     endDate: "",
     isIncremental: false,
     baseValue: 1,
-    incrementPerDay: 1,
+    incrementValue: 1,
   });
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function EditChallengePage() {
           endDate: challenge.endDate ? challenge.endDate.split("T")[0] : "",
           isIncremental: challenge.isIncremental,
           baseValue: challenge.baseValue,
-          incrementPerDay: challenge.incrementPerDay,
+          incrementValue: challenge.incrementValue,
         });
       } catch (err) {
         console.error("Error fetching challenge:", err);
@@ -90,8 +90,7 @@ export default function EditChallengePage() {
         endDate: endDate || null,
         isIncremental,
         baseValue: parseInt(formData.get("baseValue") as string) || 1,
-        incrementPerDay:
-          parseInt(formData.get("incrementPerDay") as string) || 1,
+        incrementValue: parseInt(formData.get("incrementValue") as string) || 1,
       });
 
       router.push(`/challenges/${params.id}`);
@@ -348,27 +347,30 @@ export default function EditChallengePage() {
 
                 <div>
                   <label
-                    htmlFor="incrementPerDay"
+                    htmlFor="incrementValue"
                     className="block text-sm font-medium text-gray-700"
                   >
-                    Increment Per Day
+                    Increment Per{" "}
+                    {(formData.frequency || "daily").charAt(0).toUpperCase() +
+                      (formData.frequency || "daily").slice(1).toLowerCase()}
                   </label>
                   <input
                     type="number"
-                    id="incrementPerDay"
-                    name="incrementPerDay"
-                    value={formData.incrementPerDay}
+                    id="incrementValue"
+                    name="incrementValue"
+                    value={formData.incrementValue}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        incrementPerDay: parseInt(e.target.value),
+                        incrementValue: parseInt(e.target.value),
                       })
                     }
                     min="1"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                   />
                   <p className="mt-1 text-sm text-gray-500">
-                    How much to increase the target each day
+                    How much to increase the target each{" "}
+                    {(formData.frequency || "daily").toLowerCase()}
                   </p>
                 </div>
               </div>
