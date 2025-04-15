@@ -48,28 +48,43 @@ export function EntryForm({
       isSelected: boolean;
     }[] = [];
 
-    // Start date of the challenge
-    const start = new Date(challenge.startDate);
-    start.setHours(0, 0, 0, 0);
+    // Start date of the challenge - parse date components to avoid timezone issues
+    const startDateStr = challenge.startDate.split("T")[0];
+    const [startYear, startMonth, startDay] = startDateStr
+      .split("-")
+      .map(Number);
+    // Create date with date components only (with noon time to avoid any timezone edge cases)
+    const start = new Date(startYear, startMonth - 1, startDay, 12, 0, 0, 0);
 
     // End date is either the challenge end date or today, whichever is earlier
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setHours(12, 0, 0, 0);
 
-    const end = challenge.endDate
-      ? new Date(
-          Math.min(new Date(challenge.endDate).getTime(), today.getTime())
-        )
-      : today;
+    let end;
+    if (challenge.endDate) {
+      const endDateStr = challenge.endDate.split("T")[0];
+      const [endYear, endMonth, endDay] = endDateStr.split("-").map(Number);
+      const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0, 0);
+      end = new Date(Math.min(endDate.getTime(), today.getTime()));
+    } else {
+      end = today;
+    }
+
+    console.log(
+      `Generating calendar dates from ${start.toISOString()} to ${end.toISOString()}`
+    );
 
     // If start date is in the future, no dates are selectable
     if (start > today) {
+      console.log("Start date is in the future, no dates are selectable");
       setCalendarDates([]);
       return;
     }
 
-    // Generate dates from start to end
+    // Generate dates from start to end (not before start date)
+    // Ensure we start exactly at the challenge start date, not before
     let current = new Date(start);
+    let count = 0;
     while (current <= end) {
       const dateStr = formatDateForInput(current);
       dates.push({
@@ -77,9 +92,29 @@ export function EntryForm({
         isSelectable: true,
         isSelected: selectedDates.includes(dateStr),
       });
+
+      // Debug logging for the first and last few dates
+      if (
+        count < 3 ||
+        end.getTime() - current.getTime() < 3 * 24 * 60 * 60 * 1000
+      ) {
+        console.log(
+          `Calendar date ${count + 1}: ${dateStr}, target: ${getCurrentTarget(
+            dateStr
+          )}`
+        );
+      } else if (count === 3) {
+        console.log("... more dates ...");
+      }
+
       current.setDate(current.getDate() + 1);
+      count++;
     }
 
+    // Sort dates in ascending order to ensure they appear chronologically
+    dates.sort((a, b) => a.date.localeCompare(b.date));
+
+    console.log(`Generated ${dates.length} calendar dates`);
     setCalendarDates(dates);
   };
 
@@ -93,7 +128,11 @@ export function EntryForm({
 
   // Format a date for display
   const formatDateForDisplay = (dateStr: string): string => {
-    const date = new Date(dateStr);
+    // Parse the date string manually to avoid timezone issues
+    const [year, month, day] = dateStr.split("-").map(Number);
+    // Create date with consistent timezone handling (noon to avoid any date shifting)
+    const date = new Date(year, month - 1, day, 12, 0, 0, 0);
+
     return date.toLocaleDateString(undefined, {
       weekday: "short",
       month: "short",
@@ -102,31 +141,110 @@ export function EntryForm({
   };
 
   const getCurrentTarget = (date: string) => {
-    // If the selected date is before the challenge start date, return 0
+    if (!challenge || !date) {
+      console.error("getCurrentTarget: Challenge or date is null");
+      return 0;
+    }
+
     try {
-      const selectedDate = new Date(date);
-      const startDate = new Date(challenge.startDate);
+      // Parse the dates making sure to handle them consistently in UTC
+      const [yearStr, monthStr, dayStr] = date.split("-").map(Number);
+      const [startYearStr, startMonthStr, startDayStr] = challenge.startDate
+        .split("T")[0]
+        .split("-")
+        .map(Number);
 
-      // Set times to noon to avoid timezone issues
-      selectedDate.setHours(12, 0, 0, 0);
-      startDate.setHours(12, 0, 0, 0);
+      // Create Date objects for consistent comparison (noon UTC to avoid timezone issues)
+      const dateToCheck = new Date(
+        Date.UTC(yearStr, monthStr - 1, dayStr, 12, 0, 0)
+      );
+      const startDate = new Date(
+        Date.UTC(startYearStr, startMonthStr - 1, startDayStr, 12, 0, 0)
+      );
 
-      if (selectedDate < startDate) {
-        console.log("Selected date is before challenge start date. Target: 0");
+      console.log(
+        `Checking target for date: ${dateToCheck.toISOString()} vs start: ${startDate.toISOString()}`
+      );
+
+      // If selected date is before challenge start date
+      if (dateToCheck < startDate) {
+        console.log("Selected date is before challenge start");
         return 0;
       }
 
+      // Base value is the initial target; default to 1 if not set
+      const baseValue =
+        typeof challenge.baseValue === "number"
+          ? challenge.baseValue
+          : Number(challenge.baseValue || 1);
+
+      // For non-incremental challenges, just return the constant target
       if (!challenge.isIncremental) {
         return challenge.target;
       }
 
-      const diffTime = Math.abs(selectedDate.getTime() - startDate.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // Increment value for incremental challenges
+      const incrementValue =
+        typeof challenge.incrementValue === "number"
+          ? challenge.incrementValue
+          : Number(challenge.incrementValue || 1);
 
-      return challenge.baseValue + diffDays * challenge.incrementPerDay;
+      const frequency = challenge.frequency?.toLowerCase() || "daily";
+
+      if (frequency === "daily") {
+        // Calculate the number of days since start date
+        const diffTime = dateToCheck.getTime() - startDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        // Start date gets baseValue, subsequent days get incremented
+        const target = baseValue + diffDays * incrementValue;
+
+        console.log(
+          `Daily increment: Day ${diffDays} = ${baseValue} + (${diffDays} * ${incrementValue}) = ${target}`
+        );
+        return target;
+      } else if (frequency === "weekly") {
+        // Calculate the number of weeks since start date
+        const diffTime = dateToCheck.getTime() - startDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffWeeks = Math.floor(diffDays / 7);
+
+        // Start week gets baseValue, subsequent weeks get incremented
+        const target = baseValue + diffWeeks * incrementValue;
+
+        console.log(
+          `Weekly increment: Week ${diffWeeks} = ${baseValue} + (${diffWeeks} * ${incrementValue}) = ${target}`
+        );
+        return target;
+      } else if (frequency === "monthly") {
+        // Calculate month difference accurately
+        let diffMonths =
+          (dateToCheck.getFullYear() - startDate.getFullYear()) * 12 +
+          (dateToCheck.getMonth() - startDate.getMonth());
+
+        // Adjust for day of month (if date is earlier in the month than start date)
+        if (dateToCheck.getDate() < startDate.getDate()) {
+          diffMonths -= 1;
+        }
+
+        // Ensure we don't go negative for dates just after start date
+        const adjustedDiffMonths = Math.max(0, diffMonths);
+        const target = baseValue + adjustedDiffMonths * incrementValue;
+
+        console.log(
+          `Monthly increment: Month ${adjustedDiffMonths} = ${baseValue} + (${adjustedDiffMonths} * ${incrementValue}) = ${target}`
+        );
+        return target;
+      }
+
+      // Fallback to daily if frequency is unknown
+      console.error(`Unknown frequency: ${frequency}, defaulting to daily`);
+      const diffTime = dateToCheck.getTime() - startDate.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      return baseValue + diffDays * incrementValue;
     } catch (error) {
-      console.error("Error calculating target:", error);
-      return challenge.isIncremental ? challenge.baseValue : challenge.target;
+      console.error("Error in getCurrentTarget:", error);
+      return 0;
     }
   };
 
@@ -542,31 +660,43 @@ export function EntryForm({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 mb-4">
-                {calendarDates.map((item) => (
-                  <button
-                    key={item.date}
-                    onClick={() => toggleDateSelection(item.date)}
-                    disabled={!item.isSelectable}
-                    className={`p-2 rounded text-sm ${
-                      item.isSelected
-                        ? "bg-indigo-100 border-2 border-indigo-500"
-                        : "bg-white border border-gray-200 hover:border-indigo-300"
-                    } ${
-                      !item.isSelectable
-                        ? "opacity-50 cursor-not-allowed"
-                        : "cursor-pointer"
-                    }`}
-                  >
-                    <div className="text-xs text-gray-500">
-                      {formatDateForDisplay(item.date)}
-                    </div>
-                    <div className="mt-1 font-medium text-gray-800">
-                      {getCurrentTarget(item.date)} {challenge.unit}
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <>
+                <div className="mb-2 text-xs text-gray-500 flex justify-between px-2">
+                  <span>
+                    Available dates:{" "}
+                    {formatDateForDisplay(challenge.startDate.split("T")[0])} -{" "}
+                    {formatDateForDisplay(
+                      calendarDates[calendarDates.length - 1].date
+                    )}
+                  </span>
+                  <span>Total: {calendarDates.length} days</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 mb-4">
+                  {calendarDates.map((item) => (
+                    <button
+                      key={item.date}
+                      onClick={() => toggleDateSelection(item.date)}
+                      disabled={!item.isSelectable}
+                      className={`p-2 rounded text-sm ${
+                        item.isSelected
+                          ? "bg-indigo-100 border-2 border-indigo-500"
+                          : "bg-white border border-gray-200 hover:border-indigo-300"
+                      } ${
+                        !item.isSelectable
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer"
+                      }`}
+                    >
+                      <div className="text-xs text-gray-500">
+                        {formatDateForDisplay(item.date)}
+                      </div>
+                      <div className="mt-1 font-medium text-gray-800">
+                        {getCurrentTarget(item.date)} {challenge.unit}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
             )}
 
             <div className="bg-gray-50 p-3 rounded-lg mb-4">

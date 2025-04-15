@@ -16,6 +16,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    console.log(`Fetching challenge with ID: ${params.id}`);
     const { data: challenge, error } = await supabase
       .from("challenges")
       .select("*")
@@ -35,6 +36,22 @@ export async function GET(
       );
     }
 
+    console.log("Raw database challenge:", JSON.stringify(challenge, null, 2));
+
+    // Check if the column has been renamed in the database
+    if (
+      challenge.increment_per_day !== undefined &&
+      challenge.increment_value === undefined
+    ) {
+      console.warn("Database still using old column name 'increment_per_day'");
+      // Handle legacy database schema
+      challenge.increment_value = challenge.increment_per_day;
+    }
+
+    if (!challenge.increment_value && challenge.increment_value !== 0) {
+      console.error("Missing increment_value in database response");
+    }
+
     // Map database field names to our API model field names
     const mappedChallenge = {
       id: challenge.id,
@@ -45,19 +62,27 @@ export async function GET(
       unit: challenge.unit,
       frequency: challenge.frequency,
       startDate: challenge.start_date,
-      endDate: challenge.end_date,
+      endDate: challenge.end_date?.toISOString
+        ? challenge.end_date.toISOString()
+        : challenge.end_date,
       userId: challenge.user_id,
       createdAt: challenge.created_at,
       updatedAt: challenge.updated_at,
       isIncremental: challenge.is_incremental,
-      baseValue: challenge.base_value,
-      incrementPerDay: challenge.increment_per_day,
+      baseValue: challenge.base_value ?? 1, // Use nullish coalescing to handle null
+      incrementValue: challenge.increment_value ?? 1, // Use nullish coalescing to handle null
     };
 
-    console.log("Database challenge:", challenge);
-    console.log("Mapped challenge:", mappedChallenge);
+    console.log(
+      "Mapped challenge for API:",
+      JSON.stringify(mappedChallenge, null, 2)
+    );
 
-    return NextResponse.json(mappedChallenge);
+    // Convert to JSON and then parse to ensure clean serialization
+    const serializedChallenge = JSON.parse(JSON.stringify(mappedChallenge));
+    console.log("Serialized challenge:", serializedChallenge);
+
+    return NextResponse.json(serializedChallenge);
   } catch (error) {
     console.error("Error in GET /api/challenges/[id]:", error);
     return NextResponse.json(
@@ -130,7 +155,7 @@ export async function PATCH(
         end_date: body.endDate,
         is_incremental: body.isIncremental,
         base_value: body.baseValue,
-        increment_per_day: body.incrementPerDay,
+        increment_value: body.incrementValue,
       })
       .eq("id", params.id)
       .eq("user_id", session.user.id)
@@ -142,7 +167,7 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // Map database field names to our API model field names
+    // Map database field names to our API model field names in PATCH handler
     const mappedChallenge = {
       id: challenge.id,
       title: challenge.title,
@@ -152,16 +177,23 @@ export async function PATCH(
       unit: challenge.unit,
       frequency: challenge.frequency,
       startDate: challenge.start_date,
-      endDate: challenge.end_date,
+      endDate: challenge.end_date?.toISOString
+        ? challenge.end_date.toISOString()
+        : challenge.end_date,
       userId: challenge.user_id,
       createdAt: challenge.created_at,
       updatedAt: challenge.updated_at,
       isIncremental: challenge.is_incremental,
-      baseValue: challenge.base_value,
-      incrementPerDay: challenge.increment_per_day,
+      baseValue: challenge.base_value ?? 1,
+      incrementValue: challenge.increment_value ?? 1,
     };
 
-    return NextResponse.json(mappedChallenge);
+    console.log("Updated challenge:", JSON.stringify(mappedChallenge, null, 2));
+
+    // Convert to JSON and then parse to ensure clean serialization
+    const serializedChallenge = JSON.parse(JSON.stringify(mappedChallenge));
+
+    return NextResponse.json(serializedChallenge);
   } catch (error) {
     console.error("Error in PATCH /api/challenges/[id]:", error);
     return NextResponse.json(
