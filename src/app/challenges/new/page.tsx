@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createChallenge } from "@/lib/api";
 import { ChallengeType, Frequency } from "@/types";
@@ -21,6 +21,8 @@ export default function NewChallengePage() {
     isIncremental: false,
     baseValue: 1,
     incrementValue: 1,
+    durationType: "endDate",
+    durationValue: 4,
   });
 
   const handleChange = (
@@ -37,9 +39,10 @@ export default function NewChallengePage() {
         [name]: target.checked,
       });
     } else if (type === "number") {
+      const newValue = value === "" ? "" : parseInt(value) || 0;
       setFormData({
         ...formData,
-        [name]: parseInt(value) || 0,
+        [name]: newValue,
       });
     } else {
       setFormData({
@@ -56,27 +59,88 @@ export default function NewChallengePage() {
     });
   };
 
+  const handleDurationTypeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      durationType: e.target.value,
+    });
+  };
+
+  useEffect(() => {
+    if (formData.durationType === "duration" && formData.startDate) {
+      const durationValue = Number(formData.durationValue);
+      if (isNaN(durationValue) || durationValue <= 0) return;
+
+      const startDate = new Date(formData.startDate);
+      let endDate = new Date(startDate);
+
+      const frequency = formData.frequency.toLowerCase();
+
+      if (frequency === "weekly") {
+        endDate.setDate(startDate.getDate() + durationValue * 7 - 1);
+      } else if (frequency === "monthly") {
+        endDate.setMonth(startDate.getMonth() + durationValue - 1);
+        endDate.setDate(startDate.getDate());
+      } else {
+        endDate.setDate(startDate.getDate() + durationValue - 1);
+      }
+
+      const formattedEndDate = endDate.toISOString().split("T")[0];
+      setFormData((prev) => ({
+        ...prev,
+        endDate: formattedEndDate,
+      }));
+    }
+  }, [
+    formData.startDate,
+    formData.durationValue,
+    formData.durationType,
+    formData.frequency,
+  ]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const startDate = formData.get("startDate") as string;
-    const endDate = formData.get("endDate") as string;
-    const isIncremental = formData.get("challengeType") === "incremental";
-    const unit = formData.get("unit") as string;
+    const form = e.currentTarget;
+    const formInputData = new FormData(form);
+    const startDate = formInputData.get("startDate") as string;
+    const isIncremental = formInputData.get("challengeType") === "incremental";
+    const unit = formInputData.get("unit") as string;
+    const durationType = formInputData.get("durationType") as string;
 
-    // Common validation
     if (!unit) {
       alert("Please enter a unit for your challenge");
       return;
     }
 
-    // Validate dates
-    const startDateObj = new Date(startDate);
-    const endDateObj = endDate ? new Date(endDate) : null;
-
-    if (endDateObj && endDateObj < startDateObj) {
-      alert("End date cannot be before start date");
+    if (!startDate) {
+      alert("Please enter a start date");
       return;
+    }
+
+    // Validate duration value if using duration option
+    if (durationType === "duration") {
+      const durationValue = Number(formData.durationValue);
+      if (isNaN(durationValue) || durationValue <= 0) {
+        alert(
+          `Please enter a valid number of ${getDurationValueLabel().toLowerCase()}`
+        );
+        return;
+      }
+    }
+
+    const endDate =
+      durationType === "duration"
+        ? formData.endDate // Use the React component state's endDate
+        : (formInputData.get("endDate") as string); // Use the form input value
+
+    if (durationType === "endDate" && endDate) {
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
+
+      if (endDateObj < startDateObj) {
+        alert("End date cannot be before start date");
+        return;
+      }
     }
 
     try {
@@ -87,20 +151,17 @@ export default function NewChallengePage() {
         throw new Error("Not authenticated");
       }
 
-      // Handle target, baseValue and incrementValue based on challenge type
       let target, baseValue, incrementValue;
 
       if (isIncremental) {
-        // For incremental challenges, get baseValue and incrementValue
-        baseValue = parseInt(formData.get("baseValue") as string) || 1;
+        baseValue = parseInt(formInputData.get("baseValue") as string) || 1;
         incrementValue =
-          parseInt(formData.get("incrementValue") as string) || 1;
-        target = baseValue; // Target starts at base value
+          parseInt(formInputData.get("incrementValue") as string) || 1;
+        target = baseValue;
       } else {
-        // For static challenges, get target value
-        target = parseInt(formData.get("target") as string) || 1;
-        baseValue = target; // Set base value equal to target
-        incrementValue = 0; // Not used for static challenges
+        target = parseInt(formInputData.get("target") as string) || 1;
+        baseValue = target;
+        incrementValue = 0;
       }
 
       console.log("Creating challenge with:", {
@@ -108,15 +169,16 @@ export default function NewChallengePage() {
         target,
         baseValue,
         incrementValue,
+        endDate,
       });
 
       await createChallenge({
-        title: formData.get("title") as string,
-        description: formData.get("description") as string,
-        type: formData.get("type") as ChallengeType,
+        title: formInputData.get("title") as string,
+        description: formInputData.get("description") as string,
+        type: formInputData.get("type") as ChallengeType,
         target,
         unit,
-        frequency: formData.get("frequency") as Frequency,
+        frequency: formInputData.get("frequency") as Frequency,
         startDate: startDate,
         endDate: endDate || null,
         isIncremental,
@@ -129,6 +191,17 @@ export default function NewChallengePage() {
     } catch (error) {
       console.error("Error creating challenge:", error);
       alert("Failed to create challenge. Please try again.");
+    }
+  };
+
+  const getDurationValueLabel = () => {
+    switch (formData.frequency.toLowerCase()) {
+      case "weekly":
+        return "Weeks";
+      case "monthly":
+        return "Months";
+      default:
+        return "Days";
     }
   };
 
@@ -172,7 +245,6 @@ export default function NewChallengePage() {
             />
           </div>
 
-          {/* Challenge Type Selection (Static vs Incremental) */}
           <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
             <p className="block text-sm font-medium text-gray-700 mb-3">
               Challenge Type
@@ -377,40 +449,115 @@ export default function NewChallengePage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label
-                htmlFor="startDate"
-                className="block text-sm font-medium text-gray-700"
-              >
-                Start Date
-              </label>
-              <input
-                type="date"
-                id="startDate"
-                name="startDate"
-                value={formData.startDate}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+          <div>
+            <label
+              htmlFor="startDate"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Start Date
+            </label>
+            <input
+              type="date"
+              id="startDate"
+              name="startDate"
+              value={formData.startDate}
+              onChange={handleChange}
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              required
+            />
+          </div>
 
-            <div>
-              <label
-                htmlFor="endDate"
-                className="block text-sm font-medium text-gray-700"
-              >
-                End Date (Optional)
-              </label>
-              <input
-                type="date"
-                id="endDate"
-                name="endDate"
-                value={formData.endDate}
-                onChange={handleChange}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              />
+          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <p className="block text-sm font-medium text-gray-700 mb-3">
+              Challenge Duration
+            </p>
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="durationEndDate"
+                  name="durationType"
+                  value="endDate"
+                  checked={formData.durationType === "endDate"}
+                  onChange={handleDurationTypeChange}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                />
+                <label
+                  htmlFor="durationEndDate"
+                  className="ml-2 block text-sm text-gray-900"
+                >
+                  <span className="font-medium">End Date</span>
+                  <span className="text-gray-500 block text-xs">
+                    Specify the exact end date
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="radio"
+                  id="durationPeriod"
+                  name="durationType"
+                  value="duration"
+                  checked={formData.durationType === "duration"}
+                  onChange={handleDurationTypeChange}
+                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                />
+                <label
+                  htmlFor="durationPeriod"
+                  className="ml-2 block text-sm text-gray-900"
+                >
+                  <span className="font-medium">Duration</span>
+                  <span className="text-gray-500 block text-xs">
+                    Specify the number of{" "}
+                    {getDurationValueLabel().toLowerCase()}
+                  </span>
+                </label>
+              </div>
+
+              {formData.durationType === "endDate" ? (
+                <div className="pl-6 mt-2">
+                  <label
+                    htmlFor="endDate"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    id="endDate"
+                    name="endDate"
+                    value={formData.endDate}
+                    onChange={handleChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                  />
+                </div>
+              ) : (
+                <div className="pl-6 mt-2">
+                  <label
+                    htmlFor="durationValue"
+                    className="block text-sm font-medium text-gray-700"
+                  >
+                    Number of {getDurationValueLabel()}
+                  </label>
+                  <input
+                    type="number"
+                    id="durationValue"
+                    name="durationValue"
+                    value={formData.durationValue}
+                    onChange={handleChange}
+                    min="1"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                    required={formData.durationType === "duration"}
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Your challenge will end on{" "}
+                    {formData.endDate
+                      ? new Date(formData.endDate).toLocaleDateString()
+                      : "the calculated end date"}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 

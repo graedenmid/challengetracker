@@ -52,29 +52,45 @@ export default function ChallengeDetail() {
             data.incrementPerDay !== null
           ) {
             console.log("Found incrementPerDay, adapting to incrementValue");
-            data.incrementValue = data.incrementPerDay;
+            data.incrementValue = Number(data.incrementPerDay); // Ensure it's a number
           } else if (
             data.is_incremental &&
             data.increment_value !== undefined
           ) {
             // Try database field names directly
             console.log("Found DB field increment_value, adapting");
-            data.incrementValue = data.increment_value;
+            data.incrementValue = Number(data.increment_value); // Ensure it's a number
           } else if (
             data.is_incremental &&
             data.increment_per_day !== undefined
           ) {
             // Try legacy DB field names
             console.log("Found DB field increment_per_day, adapting");
-            data.incrementValue = data.increment_per_day;
+            data.incrementValue = Number(data.increment_per_day); // Ensure it's a number
           } else {
             console.log("Setting default incrementValue = 1");
             data.incrementValue = 1; // Sensible default
           }
+        } else {
+          // Make sure incrementValue is a number even if it's provided
+          data.incrementValue = Number(data.incrementValue);
         }
 
+        // Also ensure baseValue is a number
+        if (
+          (!data.baseValue && data.baseValue !== 0) ||
+          data.baseValue === null
+        ) {
+          data.baseValue = data.base_value || 1;
+        }
+        data.baseValue = Number(data.baseValue);
+
         console.log(
-          `Challenge after fixing: baseValue=${data.baseValue}, incrementValue=${data.incrementValue}, frequency=${data.frequency}`
+          `Challenge after fixing: baseValue=${
+            data.baseValue
+          } (${typeof data.baseValue}), incrementValue=${
+            data.incrementValue
+          } (${typeof data.incrementValue}), frequency=${data.frequency}`
         );
 
         setChallenge(data);
@@ -154,41 +170,70 @@ export default function ChallengeDetail() {
         `Start date obj: ${startDate.toISOString()}, Target date obj: ${targetDate.toISOString()}`
       );
 
+      // If target date is before start date, return 0
+      if (targetDate < startDate) {
+        console.log("Target date is before challenge start date. Target: 0");
+        return 0;
+      }
+
       // Calculate time units based on frequency
       const diffTime = Math.max(0, targetDate.getTime() - startDate.getTime());
       const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
       let units = 0;
 
-      if (challenge.frequency === "daily") {
+      if (challenge.frequency.toLowerCase() === "daily") {
         units = diffDays;
-      } else if (challenge.frequency === "weekly") {
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
         units = Math.floor(diffDays / 7);
-      } else if (challenge.frequency === "monthly") {
-        // Approximate months by getting the difference in months between dates
-        const startMonth = startDate.getMonth();
-        const targetMonth = targetDate.getMonth();
-        const startYear = startDate.getFullYear();
-        const targetYear = targetDate.getFullYear();
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
+        // Calculate number of months
+        const startDate = new Date(challenge.startDate);
+        let endDate = challenge.endDate
+          ? new Date(challenge.endDate)
+          : new Date();
 
-        units = (targetYear - startYear) * 12 + (targetMonth - startMonth);
+        // For month calculation, we need to be careful:
+        // For a Jan 1 - Dec 31 challenge, we should count exactly 12 months
+        const monthDiff =
+          (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+          endDate.getMonth() -
+          startDate.getMonth();
 
-        // Adjust for day of month (if we haven't reached same day in the month, subtract 1)
-        if (targetDate.getDate() < startDate.getDate()) {
-          units -= 1;
-        }
+        // Include the end month only if it's at least the same day of month or later
+        // This ensures Jan 1 - Dec 31 = 12 months (not 13)
+        const totalMonths = Math.max(
+          1,
+          monthDiff + (endDate.getDate() >= startDate.getDate() ? 1 : 0)
+        );
 
-        // Make sure we don't go negative
-        units = Math.max(0, units);
+        console.log(
+          `Monthly calculation from ${startDate.toISOString()} to ${endDate.toISOString()}, totalMonths: ${totalMonths}`
+        );
+
+        return challenge.target * totalMonths;
       }
 
       console.log(
         `Frequency units difference: ${units} ${challenge.frequency} periods`
       );
 
-      // Calculate target
-      const baseValue = challenge.baseValue || 1; // Default to 1 if not set
-      const incrementValue = challenge.incrementValue || 1; // Default to 1 if not set
+      // Calculate target - force numeric types
+      const baseValue =
+        typeof challenge.baseValue === "number"
+          ? challenge.baseValue
+          : Number(challenge.baseValue || 1);
+      const incrementValue =
+        typeof challenge.incrementValue === "number"
+          ? challenge.incrementValue
+          : Number(challenge.incrementValue || 1);
+
+      console.log(
+        `Using baseValue: ${baseValue} (${typeof baseValue}), incrementValue: ${incrementValue} (${typeof incrementValue})`
+      );
+
+      // For day 0 (start date), the target should be just the baseValue
+      // Only apply increments for days after the start date
       const target = baseValue + units * incrementValue;
       console.log(`Calculated target: ${target}`);
 
@@ -357,7 +402,40 @@ export default function ChallengeDetail() {
       console.log(
         `Non-incremental challenge, target: ${challenge.target} x ${totalDays} days`
       );
-      return challenge.target * totalDays;
+      // For non-incremental challenges, adjust based on frequency
+      if (challenge.frequency.toLowerCase() === "daily") {
+        return challenge.target * totalDays;
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
+        const totalWeeks = Math.ceil(totalDays / 7);
+        return challenge.target * totalWeeks;
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
+        // Calculate number of months
+        const startDate = new Date(challenge.startDate);
+        let endDate = challenge.endDate
+          ? new Date(challenge.endDate)
+          : new Date();
+
+        // For month calculation, we need to be careful:
+        // For a Jan 1 - Dec 31 challenge, we should count exactly 12 months
+        const monthDiff =
+          (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+          endDate.getMonth() -
+          startDate.getMonth();
+
+        // Include the end month only if it's at least the same day of month or later
+        // This ensures Jan 1 - Dec 31 = 12 months (not 13)
+        const totalMonths = Math.max(
+          1,
+          monthDiff + (endDate.getDate() >= startDate.getDate() ? 1 : 0)
+        );
+
+        console.log(
+          `Monthly calculation from ${startDate.toISOString()} to ${endDate.toISOString()}, totalMonths: ${totalMonths}`
+        );
+
+        return challenge.target * totalMonths;
+      }
+      return challenge.target * totalDays; // fallback
     } else {
       // For incremental challenges, sum all periodic targets
       let total = 0;
@@ -365,20 +443,33 @@ export default function ChallengeDetail() {
       console.log(`Challenge data used for calculations:`, {
         id: challenge.id,
         isIncremental: challenge.isIncremental,
-        baseValue: challenge.baseValue,
-        incrementValue: challenge.incrementValue,
+        baseValue:
+          typeof challenge.baseValue === "number"
+            ? challenge.baseValue
+            : Number(challenge.baseValue || 1),
+        incrementValue:
+          typeof challenge.incrementValue === "number"
+            ? challenge.incrementValue
+            : Number(challenge.incrementValue || 1),
         frequency: challenge.frequency,
       });
 
-      const baseValue = challenge.baseValue || 1; // Default to 1 if not set
-      const incrementValue = challenge.incrementValue || 1; // Default to 1 if not set
+      // Force numeric values with defaults
+      const baseValue =
+        typeof challenge.baseValue === "number"
+          ? challenge.baseValue
+          : Number(challenge.baseValue || 1);
+      const incrementValue =
+        typeof challenge.incrementValue === "number"
+          ? challenge.incrementValue
+          : Number(challenge.incrementValue || 1);
 
       console.log(
-        `Using baseValue: ${baseValue}, incrementValue: ${incrementValue}`
+        `Using baseValue: ${baseValue} (${typeof baseValue}), incrementValue: ${incrementValue} (${typeof incrementValue})`
       );
 
       // Calculate total based on frequency
-      if (challenge.frequency === "daily") {
+      if (challenge.frequency.toLowerCase() === "daily") {
         console.log(`Daily frequency calculation for ${totalDays} days`);
         // Sum daily targets
         for (let i = 0; i < totalDays; i++) {
@@ -390,52 +481,48 @@ export default function ChallengeDetail() {
             console.log(`... (omitting days 6 through ${totalDays - 4})`);
           }
         }
-      } else if (challenge.frequency === "weekly") {
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
         // Calculate total weeks
         const totalWeeks = Math.ceil(totalDays / 7);
         console.log(`Weekly frequency calculation for ${totalWeeks} weeks`);
+
+        // Sum weekly targets (NOT daily)
         for (let i = 0; i < totalWeeks; i++) {
           const weeklyTarget = baseValue + i * incrementValue;
           total += weeklyTarget;
           console.log(`Week ${i + 1} target: ${weeklyTarget}`);
         }
-
-        // Multiply by 7 for daily total
-        console.log(`Total before daily adjustment: ${total}`);
-        total *= 7;
-        console.log(`Total after multiplying by 7 days per week: ${total}`);
-      } else if (challenge.frequency === "monthly") {
-        // Approximate number of months
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
+        // Calculate number of months
         const startDate = new Date(challenge.startDate);
         let endDate = challenge.endDate
           ? new Date(challenge.endDate)
           : new Date();
 
-        console.log(
-          `Monthly calculation from ${startDate.toISOString()} to ${endDate.toISOString()}`
-        );
-
+        // For month calculation, we need to be careful:
+        // For a Jan 1 - Dec 31 challenge, we should count exactly 12 months
         const monthDiff =
           (endDate.getFullYear() - startDate.getFullYear()) * 12 +
           endDate.getMonth() -
-          startDate.getMonth() +
-          (endDate.getDate() >= startDate.getDate() ? 0 : -1);
+          startDate.getMonth();
 
-        const totalMonths = Math.max(1, monthDiff);
-        console.log(`Calculated ${totalMonths} months in the challenge period`);
+        // Include the end month only if it's at least the same day of month or later
+        // This ensures Jan 1 - Dec 31 = 12 months (not 13)
+        const totalMonths = Math.max(
+          1,
+          monthDiff + (endDate.getDate() >= startDate.getDate() ? 1 : 0)
+        );
 
+        console.log(
+          `Monthly calculation from ${startDate.toISOString()} to ${endDate.toISOString()}, totalMonths: ${totalMonths}`
+        );
+
+        // Sum monthly targets (NOT daily)
         for (let i = 0; i < totalMonths; i++) {
           const monthlyTarget = baseValue + i * incrementValue;
           total += monthlyTarget;
           console.log(`Month ${i + 1} target: ${monthlyTarget}`);
         }
-
-        // Calculate average days per month for more accurate totals
-        const avgDaysPerMonth = totalDays / totalMonths;
-        console.log(`Average days per month: ${avgDaysPerMonth}`);
-        console.log(`Total before daily adjustment: ${total}`);
-        total *= avgDaysPerMonth;
-        console.log(`Total after daily adjustment: ${total}`);
       }
 
       console.log(`Final calculated total goal: ${total}`);
@@ -501,53 +588,120 @@ export default function ChallengeDetail() {
     if (!challenge) return 0;
 
     const currentDay = getCurrentDay();
+    console.log(`Current day of challenge: ${currentDay}`);
 
     if (!challenge.isIncremental) {
-      return challenge.target * currentDay;
+      // For non-incremental challenges
+      if (challenge.frequency.toLowerCase() === "daily") {
+        console.log(
+          `Non-incremental daily challenge goal so far: ${challenge.target} x ${currentDay} days`
+        );
+        return challenge.target * currentDay;
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
+        const currentWeeks = Math.ceil(currentDay / 7);
+        console.log(
+          `Non-incremental weekly challenge goal so far: ${challenge.target} x ${currentWeeks} weeks`
+        );
+        return challenge.target * currentWeeks;
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
+        // Calculate months from start to today
+        const startDate = new Date(challenge.startDate);
+        const today = new Date();
+
+        // For month calculation, we need to be careful not to double-count
+        const monthDiff =
+          (today.getFullYear() - startDate.getFullYear()) * 12 +
+          today.getMonth() -
+          startDate.getMonth();
+
+        // Include current month only if we're at/past the same day of month
+        // This ensures Jan 1 - Apr 14 = 4 months (not 5), assuming today is April 14
+        const currentMonths = Math.max(
+          1,
+          monthDiff + (today.getDate() >= startDate.getDate() ? 1 : 0)
+        );
+
+        console.log(
+          `Monthly challenge progress so far: ${challenge.target} x ${currentMonths} months`
+        );
+
+        return challenge.target * currentMonths;
+      }
+      return challenge.target * currentDay; // fallback
     } else {
       // For incremental challenges, sum targets based on frequency
       let total = 0;
-      const baseValue = challenge.baseValue || 1; // Default to 1 if not set
-      const incrementValue = challenge.incrementValue || 1; // Default to 1 if not set
 
-      if (challenge.frequency === "daily") {
+      // Force numeric values with defaults
+      const baseValue =
+        typeof challenge.baseValue === "number"
+          ? challenge.baseValue
+          : Number(challenge.baseValue || 1);
+      const incrementValue =
+        typeof challenge.incrementValue === "number"
+          ? challenge.incrementValue
+          : Number(challenge.incrementValue || 1);
+
+      console.log(
+        `Goal so far calculation using baseValue: ${baseValue} (${typeof baseValue}), incrementValue: ${incrementValue} (${typeof incrementValue})`
+      );
+
+      if (challenge.frequency.toLowerCase() === "daily") {
         // Sum daily targets up to current day
         for (let i = 0; i < currentDay; i++) {
-          total += baseValue + i * incrementValue;
+          const dailyTarget = baseValue + i * incrementValue;
+          total += dailyTarget;
+          if (i < 5 || i === currentDay - 1) {
+            console.log(`Day ${i + 1} target: ${dailyTarget}`);
+          } else if (i === 5 && currentDay > 10) {
+            console.log(`... (omitting days 6 through ${currentDay - 1})`);
+          }
         }
-      } else if (challenge.frequency === "weekly") {
+        console.log(
+          `Daily frequency, summed ${currentDay} days, total: ${total}`
+        );
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
         // Calculate current weeks
         const currentWeeks = Math.ceil(currentDay / 7);
+        console.log(`Weekly frequency, calculating for ${currentWeeks} weeks`);
+
+        // Sum weekly targets (NOT daily)
         for (let i = 0; i < currentWeeks; i++) {
-          total += baseValue + i * incrementValue;
+          const weeklyTarget = baseValue + i * incrementValue;
+          total += weeklyTarget;
+          console.log(`Week ${i + 1} target: ${weeklyTarget}`);
         }
-        // Multiply by min(7, remaining days) for the current partial week
-        const daysInLastWeek = Math.min(7, currentDay % 7 || 7);
-        total =
-          (total - (baseValue + (currentWeeks - 1) * incrementValue)) * 7 +
-          (baseValue + (currentWeeks - 1) * incrementValue) * daysInLastWeek;
-      } else if (challenge.frequency === "monthly") {
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
         // Calculate months since start
         const startDate = new Date(challenge.startDate);
         const today = new Date();
 
+        // For month calculation, we need to be careful not to double-count
         const monthDiff =
           (today.getFullYear() - startDate.getFullYear()) * 12 +
           today.getMonth() -
-          startDate.getMonth() +
-          (today.getDate() >= startDate.getDate() ? 0 : -1);
+          startDate.getMonth();
 
-        const currentMonths = Math.max(0, monthDiff);
+        // Include current month only if we're at/past the same day of month
+        // This ensures Jan 1 - Apr 14 = 4 months (not 5), assuming today is April 14
+        const currentMonths = Math.max(
+          1,
+          monthDiff + (today.getDate() >= startDate.getDate() ? 1 : 0)
+        );
 
-        // Calculate goal for completed months
+        console.log(
+          `Monthly frequency, calculating for ${currentMonths} months`
+        );
+
+        // Sum monthly targets (NOT daily)
         for (let i = 0; i < currentMonths; i++) {
-          total += baseValue + i * incrementValue;
+          const monthlyTarget = baseValue + i * incrementValue;
+          total += monthlyTarget;
+          console.log(`Month ${i + 1} target: ${monthlyTarget}`);
         }
-
-        // Determine days in current month
-        total *= currentDay / Math.max(currentMonths, 1);
       }
 
+      console.log(`Final goal so far: ${total}`);
       return total;
     }
   };
