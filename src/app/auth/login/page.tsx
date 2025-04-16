@@ -32,6 +32,9 @@ function LoginForm() {
     console.log("Login attempt with email:", email);
 
     try {
+      // Clear any previous rate limiting state
+      localStorage.removeItem("auth_rate_limited");
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -53,7 +56,16 @@ function LoginForm() {
       router.push(redirectTo);
     } catch (error: any) {
       console.error("Login error:", error);
-      setError(error.message || "An error occurred during sign in");
+      // Provide a more user-friendly message for rate limiting
+      if (error.message && error.message.includes("rate limit")) {
+        // Store rate limiting state to prevent further attempts
+        localStorage.setItem("auth_rate_limited", Date.now().toString());
+        setError(
+          "Too many login attempts. Please wait a few minutes before trying again."
+        );
+      } else {
+        setError(error.message || "An error occurred during sign in");
+      }
     } finally {
       setLoading(false);
     }
