@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import type { AuthChangeEvent } from "@supabase/supabase-js";
+import { ExtendedAuthChangeEvent } from "@/types/supabase";
 
 // For server-side usage
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -31,8 +32,8 @@ export const createBrowserClient = () => {
         refreshTokenFailed = false;
       }
 
-      // Using a type assertion for TOKEN_REFRESH_FAILURE which may not be in the type definition
-      if (event === ("TOKEN_REFRESH_FAILURE" as AuthChangeEvent)) {
+      // Using our extended type that includes TOKEN_REFRESH_FAILURE
+      if ((event as ExtendedAuthChangeEvent) === "TOKEN_REFRESH_FAILURE") {
         refreshTokenFailed = true;
       }
     });
@@ -98,7 +99,7 @@ export const getAuthSubscription = (
       lastAuthCheck = Date.now();
 
       // Track token refresh failures
-      if (event === ("TOKEN_REFRESH_FAILURE" as AuthChangeEvent)) {
+      if ((event as ExtendedAuthChangeEvent) === "TOKEN_REFRESH_FAILURE") {
         refreshTokenFailed = true;
         cachedSession = null;
       }
