@@ -31,7 +31,8 @@ export const createBrowserClient = () => {
         refreshTokenFailed = false;
       }
 
-      if (event === "TOKEN_REFRESH_FAILURE") {
+      // Using a type assertion for TOKEN_REFRESH_FAILURE which may not be in the type definition
+      if (event === ("TOKEN_REFRESH_FAILURE" as AuthChangeEvent)) {
         refreshTokenFailed = true;
       }
     });
@@ -97,7 +98,7 @@ export const getAuthSubscription = (
       lastAuthCheck = Date.now();
 
       // Track token refresh failures
-      if (event === "TOKEN_REFRESH_FAILURE") {
+      if (event === ("TOKEN_REFRESH_FAILURE" as AuthChangeEvent)) {
         refreshTokenFailed = true;
         cachedSession = null;
       }
