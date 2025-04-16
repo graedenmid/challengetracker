@@ -71,6 +71,7 @@ export async function GET(
       isIncremental: challenge.is_incremental,
       baseValue: challenge.base_value ?? 1, // Use nullish coalescing to handle null
       incrementValue: challenge.increment_value ?? 1, // Use nullish coalescing to handle null
+      metadata: challenge.metadata || null, // Add metadata field
     };
 
     console.log(
@@ -142,21 +143,28 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const updateData: any = {
+      title: body.title,
+      description: body.description,
+      type: body.type,
+      target: body.target,
+      unit: body.unit,
+      frequency: body.frequency,
+      start_date: body.startDate,
+      end_date: body.endDate,
+      is_incremental: body.isIncremental,
+      base_value: body.baseValue,
+      increment_value: body.incrementValue,
+    };
+
+    // Only update metadata if it's included in the request
+    if (body.metadata !== undefined) {
+      updateData.metadata = body.metadata;
+    }
+
     const { data: challenge, error } = await supabase
       .from("challenges")
-      .update({
-        title: body.title,
-        description: body.description,
-        type: body.type,
-        target: body.target,
-        unit: body.unit,
-        frequency: body.frequency,
-        start_date: body.startDate,
-        end_date: body.endDate,
-        is_incremental: body.isIncremental,
-        base_value: body.baseValue,
-        increment_value: body.incrementValue,
-      })
+      .update(updateData)
       .eq("id", params.id)
       .eq("user_id", session.user.id)
       .select()
@@ -186,6 +194,7 @@ export async function PATCH(
       isIncremental: challenge.is_incremental,
       baseValue: challenge.base_value ?? 1,
       incrementValue: challenge.increment_value ?? 1,
+      metadata: challenge.metadata || null, // Add metadata field
     };
 
     console.log("Updated challenge:", JSON.stringify(mappedChallenge, null, 2));

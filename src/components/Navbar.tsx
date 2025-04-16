@@ -3,30 +3,37 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import {
+  createBrowserClient,
+  getSessionSafely,
+  getAuthSubscription,
+} from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
   const pathname = usePathname();
-  const supabase = createClientComponentClient();
+  const supabase = createBrowserClient();
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const getSession = async () => {
+      const {
+        data: { session },
+      } = await getSessionSafely();
       setUser(session?.user ?? null);
-    });
+    };
+
+    getSession();
 
     // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data } = getAuthSubscription((_event, session) => {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
-  }, [supabase]);
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();

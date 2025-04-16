@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { createBrowserClient } from "@/lib/supabase";
+import {
+  createBrowserClient,
+  getSessionSafely,
+  getAuthSubscription,
+} from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 export default function Header() {
@@ -20,18 +24,16 @@ export default function Header() {
         console.log("Header: Fetching user session");
         const {
           data: { session },
-        } = await supabase.auth.getSession();
+        } = await getSessionSafely();
         console.log("Header: Session exists:", !!session);
         setUser(session?.user || null);
 
-        const {
-          data: { subscription },
-        } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data } = getAuthSubscription((_event, session) => {
           console.log("Header: Auth state changed, session exists:", !!session);
           setUser(session?.user || null);
         });
 
-        return () => subscription.unsubscribe();
+        return () => data.subscription.unsubscribe();
       } catch (error) {
         console.error("Error fetching user:", error);
       } finally {
@@ -40,7 +42,7 @@ export default function Header() {
     };
 
     fetchUser();
-  }, [supabase]);
+  }, []);
 
   // Navigation links configuration
   const navLinks = [

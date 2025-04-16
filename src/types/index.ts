@@ -14,6 +14,7 @@ export interface Challenge {
   isIncremental?: boolean;
   baseValue?: number;
   incrementValue: number;
+  metadata?: Record<string, any>;
 }
 
 export interface ChallengeEntry {
@@ -26,5 +27,5 @@ export interface ChallengeEntry {
   updatedAt: string;
 }
 
-export type ChallengeType = "daily" | "weekly" | "monthly" | "custom";
-export type Frequency = "daily" | "weekly" | "monthly";
+export type ChallengeType = "HABIT" | "GOAL" | "CHALLENGE";
+export type Frequency = "DAILY" | "WEEKLY" | "MONTHLY" | "NONE";

@@ -29,6 +29,7 @@ export async function POST(request: Request) {
         is_incremental: body.isIncremental,
         base_value: body.baseValue,
         increment_value: body.incrementValue,
+        metadata: body.metadata || null,
       })
       .select()
       .single();
@@ -55,6 +56,7 @@ export async function POST(request: Request) {
       isIncremental: challenge.is_incremental,
       baseValue: challenge.base_value,
       incrementValue: challenge.increment_value,
+      metadata: challenge.metadata,
     };
 
     console.log("Created challenge:", challenge);
@@ -109,6 +111,7 @@ export async function GET() {
       isIncremental: challenge.is_incremental,
       baseValue: challenge.base_value,
       incrementValue: challenge.increment_value,
+      metadata: challenge.metadata,
     }));
 
     return NextResponse.json(mappedChallenges);
