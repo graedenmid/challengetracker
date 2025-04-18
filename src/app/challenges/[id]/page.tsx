@@ -246,7 +246,7 @@ export default function ChallengeDetail() {
     }
   };
 
-  function formatDate(dateString: string) {
+  const formatDate = (dateString: string) => {
     if (!dateString) return "Unknown";
 
     try {
@@ -267,7 +267,7 @@ export default function ChallengeDetail() {
       console.error("Error formatting date:", error, dateString);
       return "Invalid Date";
     }
-  }
+  };
 
   const handleDelete = async () => {
     if (!challenge) return;
@@ -391,6 +391,174 @@ export default function ChallengeDetail() {
     );
 
     return Math.ceil((endUTC - startUTC) / (1000 * 60 * 60 * 24)) + 1; // +1 to include the end date
+  };
+
+  // Get the number of time periods in the appropriate unit
+  const getTotalTimePeriodsInUnit = () => {
+    if (!challenge) return 0;
+
+    const totalDays = getTotalDays();
+
+    if (challenge.frequency.toLowerCase() === "daily") {
+      return totalDays;
+    } else if (challenge.frequency.toLowerCase() === "weekly") {
+      return Math.ceil(totalDays / 7);
+    } else if (challenge.frequency.toLowerCase() === "monthly") {
+      // Calculate number of months
+      const startDate = new Date(challenge.startDate);
+      let endDate = challenge.endDate
+        ? new Date(challenge.endDate)
+        : new Date();
+
+      const monthDiff =
+        (endDate.getFullYear() - startDate.getFullYear()) * 12 +
+        endDate.getMonth() -
+        startDate.getMonth();
+
+      // Include the end month only if it's at least the same day of month or later
+      return Math.max(
+        1,
+        monthDiff + (endDate.getDate() >= startDate.getDate() ? 1 : 0)
+      );
+    }
+
+    return totalDays; // Fallback to days if frequency is unknown
+  };
+
+  // Get the appropriate time unit label based on frequency
+  const getTimeUnitLabel = () => {
+    if (!challenge) return "days";
+
+    const count = getTotalTimePeriodsInUnit();
+    const frequency = challenge.frequency.toLowerCase();
+
+    if (frequency === "daily") {
+      return count === 1 ? "day" : "days";
+    } else if (frequency === "weekly") {
+      return count === 1 ? "week" : "weeks";
+    } else if (frequency === "monthly") {
+      return count === 1 ? "month" : "months";
+    }
+
+    return "days"; // Fallback
+  };
+
+  // Get the appropriate target unit label based on frequency (singular)
+  const getTargetUnitLabel = () => {
+    if (!challenge) return "daily";
+
+    const frequency = challenge.frequency.toLowerCase();
+
+    if (frequency === "daily") {
+      return "daily";
+    } else if (frequency === "weekly") {
+      return "weekly";
+    } else if (frequency === "monthly") {
+      return "monthly";
+    }
+
+    return "daily"; // Fallback
+  };
+
+  // Get the current time period (day/week/month) in the appropriate unit
+  const getCurrentTimePeriodInUnit = () => {
+    if (!challenge) return 0;
+
+    const currentDay = getCurrentDay();
+
+    if (challenge.frequency.toLowerCase() === "daily") {
+      return currentDay;
+    } else if (challenge.frequency.toLowerCase() === "weekly") {
+      return Math.ceil(currentDay / 7);
+    } else if (challenge.frequency.toLowerCase() === "monthly") {
+      // Calculate months from start to today
+      const startDate = new Date(challenge.startDate);
+      const today = new Date();
+
+      // For month calculation, we need to be careful not to double-count
+      const monthDiff =
+        (today.getFullYear() - startDate.getFullYear()) * 12 +
+        today.getMonth() -
+        startDate.getMonth();
+
+      // Include current month only if we're at/past the same day of month
+      return Math.max(
+        1,
+        monthDiff + (today.getDate() >= startDate.getDate() ? 1 : 0)
+      );
+    }
+
+    return currentDay; // Fallback to days if frequency is unknown
+  };
+
+  // Get the appropriate time period label based on frequency (singular form)
+  const getTimePeriodLabel = () => {
+    if (!challenge) return "Day";
+
+    const frequency = challenge.frequency.toLowerCase();
+
+    if (frequency === "daily") {
+      return "Day";
+    } else if (frequency === "weekly") {
+      return "Week";
+    } else if (frequency === "monthly") {
+      return "Month";
+    }
+
+    return "Day"; // Fallback
+  };
+
+  // Calculate current day of the challenge
+  const getCurrentDay = () => {
+    if (!challenge) return 0;
+
+    try {
+      // Get date strings in YYYY-MM-DD format
+      const startDateStr = challenge.startDate.split("T")[0];
+
+      // Get today's date in the same format
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(
+        today.getMonth() + 1
+      ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
+      console.log(`Start date: ${startDateStr}, Today: ${todayStr}`);
+
+      // Parse date components
+      const [startYear, startMonth, startDay] = startDateStr
+        .split("-")
+        .map(Number);
+      const [todayYear, todayMonth, todayDay] = todayStr.split("-").map(Number);
+
+      // Create date objects with consistent time (noon UTC)
+      const startDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
+      const todayDate = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
+
+      console.log(
+        `Start date obj: ${startDate.toISOString()}, Today obj: ${todayDate.toISOString()}`
+      );
+
+      // Check if today is before the start date
+      if (todayDate < startDate) {
+        // If today is before the start date, return 0 to indicate no progress is expected
+        console.log(
+          "Today is before the challenge start date. Expected progress: 0"
+        );
+        return 0;
+      }
+
+      // Calculate days difference (add 1 to include the start day)
+      const diffTime = Math.max(0, todayDate.getTime() - startDate.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+      console.log(`Day difference (including today): ${diffDays}`);
+
+      // Make sure we don't exceed the total days in the challenge
+      return Math.min(diffDays, getTotalDays());
+    } catch (error) {
+      console.error("Error calculating current day:", error);
+      return 1; // Default to day 1 if calculation fails
+    }
   };
 
   // Calculate the total goal for the entire challenge
@@ -529,59 +697,6 @@ export default function ChallengeDetail() {
 
       console.log(`Final calculated total goal: ${total}`);
       return total;
-    }
-  };
-
-  // Calculate current day of the challenge
-  const getCurrentDay = () => {
-    if (!challenge) return 0;
-
-    try {
-      // Get date strings in YYYY-MM-DD format
-      const startDateStr = challenge.startDate.split("T")[0];
-
-      // Get today's date in the same format
-      const today = new Date();
-      const todayStr = `${today.getFullYear()}-${String(
-        today.getMonth() + 1
-      ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-      console.log(`Start date: ${startDateStr}, Today: ${todayStr}`);
-
-      // Parse date components
-      const [startYear, startMonth, startDay] = startDateStr
-        .split("-")
-        .map(Number);
-      const [todayYear, todayMonth, todayDay] = todayStr.split("-").map(Number);
-
-      // Create date objects with consistent time (noon UTC)
-      const startDate = new Date(Date.UTC(startYear, startMonth - 1, startDay));
-      const todayDate = new Date(Date.UTC(todayYear, todayMonth - 1, todayDay));
-
-      console.log(
-        `Start date obj: ${startDate.toISOString()}, Today obj: ${todayDate.toISOString()}`
-      );
-
-      // Check if today is before the start date
-      if (todayDate < startDate) {
-        // If today is before the start date, return 0 to indicate no progress is expected
-        console.log(
-          "Today is before the challenge start date. Expected progress: 0"
-        );
-        return 0;
-      }
-
-      // Calculate days difference (add 1 to include the start day)
-      const diffTime = Math.max(0, todayDate.getTime() - startDate.getTime());
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
-
-      console.log(`Day difference (including today): ${diffDays}`);
-
-      // Make sure we don't exceed the total days in the challenge
-      return Math.min(diffDays, getTotalDays());
-    } catch (error) {
-      console.error("Error calculating current day:", error);
-      return 1; // Default to day 1 if calculation fails
     }
   };
 
@@ -969,7 +1084,7 @@ export default function ChallengeDetail() {
                       {getTotalGoal().toLocaleString()} {challenge.unit}
                     </p>
                     <p className="text-xs text-gray-500 mt-1">
-                      Over {getTotalDays()} days
+                      Over {getTotalTimePeriodsInUnit()} {getTimeUnitLabel()}
                     </p>
                   </div>
 
@@ -1006,8 +1121,9 @@ export default function ChallengeDetail() {
 
                   <div className="bg-gray-50 p-5 rounded-lg transition-normal hover:shadow-sm">
                     <h3 className="text-sm font-medium text-gray-500 mb-2 text-center md:text-left">
-                      Expected Progress (Day {getCurrentDay()} of{" "}
-                      {getTotalDays()})
+                      Expected Progress ({getTimePeriodLabel()}{" "}
+                      {getCurrentTimePeriodInUnit()} of{" "}
+                      {getTotalTimePeriodsInUnit()})
                     </h3>
                     <p className="text-2xl font-bold text-gray-900 text-center md:text-left">
                       {getGoalSoFar().toLocaleString()} {challenge.unit}
@@ -1251,7 +1367,7 @@ export default function ChallengeDetail() {
                           </div>
                           <p className="text-xs text-gray-500 mb-3 text-center md:text-right">
                             {entry.value}/{getCurrentTarget(entry.date)} of
-                            daily target
+                            {" " + getTargetUnitLabel()} target
                           </p>
                           <button
                             onClick={() => handleEditEntry(entry)}
