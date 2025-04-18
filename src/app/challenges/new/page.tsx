@@ -312,6 +312,20 @@ export default function NewChallengePage() {
     }
   };
 
+  // Get the appropriate time unit singular word based on frequency
+  const getFrequencyTimeUnit = (frequency: string) => {
+    switch (frequency.toLowerCase()) {
+      case "daily":
+        return "day";
+      case "weekly":
+        return "week";
+      case "monthly":
+        return "month";
+      default:
+        return "day";
+    }
+  };
+
   const renderTypeSpecificContent = () => {
     if (formData.type === "GOAL") {
       return (
@@ -662,8 +676,8 @@ export default function NewChallengePage() {
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  Target for the first {formData.frequency.toLowerCase()} of
-                  your challenge
+                  Target for the first{" "}
+                  {getFrequencyTimeUnit(formData.frequency)} of your challenge
                 </p>
               </div>
 
@@ -692,7 +706,7 @@ export default function NewChallengePage() {
                 />
                 <p className="mt-1 text-sm text-gray-500">
                   How much to increase the target each{" "}
-                  {formData.frequency.toLowerCase()}
+                  {getFrequencyTimeUnit(formData.frequency)}
                 </p>
               </div>
             </div>
@@ -733,7 +747,7 @@ export default function NewChallengePage() {
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
                   The same target to achieve every{" "}
-                  {formData.frequency.toLowerCase()}
+                  {getFrequencyTimeUnit(formData.frequency)}
                 </p>
               </div>
             </div>
