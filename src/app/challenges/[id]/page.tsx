@@ -7,6 +7,21 @@ import { EntryForm } from "@/components/EntryForm";
 import { deleteChallenge } from "@/lib/api";
 import GoalView from "@/components/GoalView";
 import { formatDate } from "@/lib/utils";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
 
 export default function ChallengeDetail() {
   const params = useParams();
@@ -21,6 +36,7 @@ export default function ChallengeDetail() {
   const [isEditingEntry, setIsEditingEntry] = useState(false);
   const [editEntryError, setEditEntryError] = useState<string | null>(null);
   const [editEntryLoading, setEditEntryLoading] = useState(false);
+  const [showVisualization, setShowVisualization] = useState(false);
 
   useEffect(() => {
     const fetchChallenge = async () => {
@@ -829,6 +845,180 @@ export default function ChallengeDetail() {
     return entries.reduce((sum, entry) => sum + entry.value, 0);
   };
 
+  // Function to prepare data for visualization
+  const prepareVisualizationData = (): {
+    barChartData: Array<{
+      name: string;
+      "Total Goal": number;
+      "Expected Progress": number;
+      "Actual Progress": number;
+    }>;
+    lineChartData: Array<{
+      date: string;
+      value: number;
+      expected: number;
+    }>;
+    pieChartData: Array<{
+      name: string;
+      value: number;
+    }>;
+    actualProgress: number;
+    expectedProgress: number;
+    totalGoal: number;
+  } => {
+    if (!challenge) {
+      return {
+        barChartData: [],
+        lineChartData: [],
+        pieChartData: [],
+        actualProgress: 0,
+        expectedProgress: 0,
+        totalGoal: 0,
+      };
+    }
+
+    const totalGoal = getTotalGoal();
+    const expectedProgress = getGoalSoFar();
+    const actualProgress = getTotalProgress();
+
+    // Data for bar chart comparing goal, expected, and actual progress
+    const barChartData = [
+      {
+        name: "Progress Comparison",
+        "Total Goal": totalGoal,
+        "Expected Progress": expectedProgress,
+        "Actual Progress": actualProgress,
+      },
+    ];
+
+    // Prepare data for line chart showing progress over time
+    const sortedEntries = [...entries].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    const lineChartData = sortedEntries.map((entry, index) => {
+      // Get the previous entries' total value
+      const previousTotal =
+        index > 0
+          ? sortedEntries.slice(0, index).reduce((sum, e) => sum + e.value, 0)
+          : 0;
+
+      // Calculate expected progress for this date
+      const entryDate = new Date(entry.date);
+      const startDate = new Date(challenge.startDate);
+
+      // Calculate days from start to this entry
+      const diffTime = Math.max(0, entryDate.getTime() - startDate.getTime());
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include the start day
+
+      // Calculate expected progress proportionally based on days passed
+      let expectedForDate = 0;
+
+      if (challenge.frequency.toLowerCase() === "daily") {
+        if (!challenge.isIncremental) {
+          expectedForDate = challenge.target * diffDays;
+        } else {
+          // For incremental challenges, sum all daily targets up to this point
+          for (let i = 0; i < diffDays; i++) {
+            const baseValue =
+              typeof challenge.baseValue === "number"
+                ? challenge.baseValue
+                : Number(challenge.baseValue || 1);
+            const incrementValue =
+              typeof challenge.incrementValue === "number"
+                ? challenge.incrementValue
+                : Number(challenge.incrementValue || 1);
+            expectedForDate += baseValue + i * incrementValue;
+          }
+        }
+      } else if (challenge.frequency.toLowerCase() === "weekly") {
+        const currentWeeks = Math.ceil(diffDays / 7);
+        if (!challenge.isIncremental) {
+          expectedForDate = challenge.target * currentWeeks;
+        } else {
+          // For incremental challenges, sum all weekly targets up to this point
+          for (let i = 0; i < currentWeeks; i++) {
+            const baseValue =
+              typeof challenge.baseValue === "number"
+                ? challenge.baseValue
+                : Number(challenge.baseValue || 1);
+            const incrementValue =
+              typeof challenge.incrementValue === "number"
+                ? challenge.incrementValue
+                : Number(challenge.incrementValue || 1);
+            expectedForDate += baseValue + i * incrementValue;
+          }
+        }
+      } else if (challenge.frequency.toLowerCase() === "monthly") {
+        // Calculate months from start to this entry date
+        const monthDiff =
+          (entryDate.getFullYear() - startDate.getFullYear()) * 12 +
+          entryDate.getMonth() -
+          startDate.getMonth();
+        const currentMonths = Math.max(
+          1,
+          monthDiff + (entryDate.getDate() >= startDate.getDate() ? 1 : 0)
+        );
+
+        if (!challenge.isIncremental) {
+          expectedForDate = challenge.target * currentMonths;
+        } else {
+          // For incremental challenges, sum all monthly targets up to this point
+          for (let i = 0; i < currentMonths; i++) {
+            const baseValue =
+              typeof challenge.baseValue === "number"
+                ? challenge.baseValue
+                : Number(challenge.baseValue || 1);
+            const incrementValue =
+              typeof challenge.incrementValue === "number"
+                ? challenge.incrementValue
+                : Number(challenge.incrementValue || 1);
+            expectedForDate += baseValue + i * incrementValue;
+          }
+        }
+      }
+
+      return {
+        date: formatDate(entry.date),
+        value: previousTotal + entry.value,
+        expected: expectedForDate,
+      };
+    });
+
+    // Add current total as the last point if there are entries
+    if (lineChartData.length > 0) {
+      const lastPoint = lineChartData[lineChartData.length - 1];
+      // Only add a final point if the last entry isn't today
+      const today = new Date();
+      const lastEntryDate = new Date(
+        sortedEntries[sortedEntries.length - 1].date
+      );
+
+      if (today.toDateString() !== lastEntryDate.toDateString()) {
+        lineChartData.push({
+          date: "Current",
+          value: actualProgress,
+          expected: expectedProgress,
+        });
+      }
+    }
+
+    // Prepare data for pie chart showing progress percentage
+    const pieChartData = [
+      { name: "Completed", value: actualProgress },
+      { name: "Remaining", value: Math.max(0, totalGoal - actualProgress) },
+    ];
+
+    return {
+      barChartData,
+      lineChartData,
+      pieChartData,
+      actualProgress,
+      expectedProgress,
+      totalGoal,
+    };
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -872,6 +1062,27 @@ export default function ChallengeDetail() {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-3xl font-bold">{challenge.title}</h1>
             <div className="flex space-x-3">
+              <button
+                onClick={() => setShowVisualization(true)}
+                className="btn-primary flex items-center"
+                aria-label="Visualize Progress"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="icon-xs mr-1.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+                  />
+                </svg>
+                Visualize
+              </button>
               <button
                 onClick={() => router.push(`/challenges/${challenge.id}/edit`)}
                 className="btn-secondary flex items-center"
@@ -1601,6 +1812,248 @@ export default function ChallengeDetail() {
                       {editEntryLoading ? "Saving..." : "Save Changes"}
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Visualization Modal */}
+          {showVisualization && challenge && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+              <div className="bg-white rounded-lg p-6 max-w-4xl w-full animate-slide-up max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-5">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="icon-sm mr-2 text-primary"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"
+                      />
+                    </svg>
+                    Progress Visualization
+                  </h2>
+                  <button
+                    onClick={() => setShowVisualization(false)}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    aria-label="Close"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="icon-md"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-8">
+                  {/* Progress Summary */}
+                  {(() => {
+                    const { actualProgress, expectedProgress, totalGoal } =
+                      prepareVisualizationData();
+                    const progressPercentage =
+                      totalGoal > 0 ? (actualProgress / totalGoal) * 100 : 0;
+                    const expectedPercentage =
+                      totalGoal > 0 ? (expectedProgress / totalGoal) * 100 : 0;
+
+                    return (
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                          Progress Summary
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Actual Progress
+                            </p>
+                            <p className="text-xl font-bold text-primary">
+                              {actualProgress.toLocaleString()} {challenge.unit}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {progressPercentage.toFixed(1)}% of total goal
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Expected Progress
+                            </p>
+                            <p className="text-xl font-bold text-gray-700">
+                              {expectedProgress.toLocaleString()}{" "}
+                              {challenge.unit}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {expectedPercentage.toFixed(1)}% of total goal
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-gray-500 mb-1">
+                              Total Goal
+                            </p>
+                            <p className="text-xl font-bold text-gray-900">
+                              {totalGoal.toLocaleString()} {challenge.unit}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Bar Chart - Progress Comparison */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Progress Comparison
+                    </h3>
+                    <div
+                      className="bg-white border border-gray-200 rounded-lg p-4"
+                      style={{ height: "300px" }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={prepareVisualizationData().barChartData}
+                          margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} ${challenge.unit}`,
+                              "",
+                            ]}
+                          />
+                          <Legend />
+                          <Bar
+                            dataKey="Total Goal"
+                            fill="#374151"
+                            barSize={60}
+                          />
+                          <Bar
+                            dataKey="Expected Progress"
+                            fill="#6B7280"
+                            barSize={60}
+                          />
+                          <Bar
+                            dataKey="Actual Progress"
+                            fill="#3B82F6"
+                            barSize={60}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Line Chart - Progress Over Time */}
+                  {prepareVisualizationData().lineChartData.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                        Progress Over Time
+                      </h3>
+                      <div
+                        className="bg-white border border-gray-200 rounded-lg p-4"
+                        style={{ height: "300px" }}
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={prepareVisualizationData().lineChartData}
+                            margin={{
+                              top: 20,
+                              right: 30,
+                              left: 20,
+                              bottom: 20,
+                            }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="date" />
+                            <YAxis />
+                            <Tooltip
+                              formatter={(value) => [
+                                `${value} ${challenge.unit}`,
+                                "Total Progress",
+                              ]}
+                            />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="value"
+                              stroke="#3B82F6"
+                              activeDot={{ r: 8 }}
+                              name="Total Progress"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="expected"
+                              stroke="#6B7280"
+                              strokeDasharray="5 5"
+                              activeDot={{ r: 6 }}
+                              name="Expected Progress"
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Pie Chart - Completion Percentage */}
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Completion Percentage
+                    </h3>
+                    <div
+                      className="bg-white border border-gray-200 rounded-lg p-4 flex justify-center"
+                      style={{ height: "300px" }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={prepareVisualizationData().pieChartData}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={100}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) =>
+                              `${name} ${(percent * 100).toFixed(0)}%`
+                            }
+                          >
+                            <Cell fill="#3B82F6" />
+                            <Cell fill="#E5E7EB" />
+                          </Pie>
+                          <Tooltip
+                            formatter={(value) => [
+                              `${value} ${challenge.unit}`,
+                              "",
+                            ]}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={() => setShowVisualization(false)}
+                    className="btn-secondary"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
